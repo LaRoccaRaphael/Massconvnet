@@ -4,17 +4,101 @@ import torch
 import random
 import logging
 import numpy as np
+import pandas as pd
 from tqdm import tqdm
 from torch.utils.data import Dataset
 
 class MSIDataset(Dataset):
+    """
+    Dataset loader for the MSI dataset
+    - Formats the input data in the graph format
+    - Formats the targets for the classification task
+    :param path: path to the MSI dataset
+    :param spectrum_names: list of spectrums to load
+    """
 
-	def __init__(self, path, split):
+    def __init__(self, path, spectrum_names, with_masses=False, mode="train"):
 
-		self.path = path
+        # Parameters
+        self.path = path
+        self.spectrum_names = spectrum_names
+        self.mode = mode
+        self.with_masses = with_masses
 
-	def __getitem__(self, index):
-		return 
+        # Load the targets
+        target_data = pd.read_csv(os.path.join(path,"Annot_table.csv"),sep="\t", header=0)
+        target_MSI_name = target_data.loc[:,"MSI name"].values
+        target_MSI_pixel_id = target_data.loc[:,"MSI pixel id"].values
+        target_class = target_data.loc[:,"Annotations"].values
 
-	def __len__(self):
-		return
+        self.num_classes = np.max(target_class)+1
+
+        # Load the adjacency matrix
+        adjacency_matrix = np.load(os.path.join(path,"Peaks_adjacency_matrix","adj_mat_highres.npy"),allow_pickle=True)
+
+        # Load the spectrums and associate the correct targets
+        self.spectrums = None
+        self.targets = None
+        for spectrum_name in spectrum_names:
+            tmp_spectrum = torch.transpose(torch.from_numpy(np.load(os.path.join(path,"MSI_datacube",spectrum_name+"_msi.npy"),allow_pickle=True)),0,1)
+            tmp_target = torch.from_numpy(target_class[np.where(target_MSI_name==spectrum_name)]).type(torch.LongTensor)
+            if self.spectrums is not None:
+                self.spectrums = torch.cat((tmp_spectrum,self.spectrums),0)
+                self.targets = torch.cat((tmp_target,self.targets),0)
+            else:
+                self.spectrums = tmp_spectrum
+                self.targets = tmp_target
+        
+        # Get the indexes of each class
+        self.class_indexes = list()
+        for i in np.arange(self.num_classes):
+            self.class_indexes.append((self.targets == i).nonzero(as_tuple=True)[0])
+
+        # Load the mass and mass defect
+        self.mass = torch.from_numpy(np.load(os.path.join(path,"Peaks_descriptor","KM_ceil.npy"),allow_pickle=True))
+        self.mass_defect = torch.from_numpy(np.load(os.path.join(path,"Peaks_descriptor","KMD_ceil.npy"),allow_pickle=True))
+
+        # Build the Graph
+        self.num_features = 1 if not with_masses else 3
+        self.num_nodes = adjacency_matrix.shape[0]
+        self.num_relations = int(np.max(adjacency_matrix))
+
+        self.edge_index = list()
+        self.edge_type = list()
+        for i in np.arange(adjacency_matrix.shape[0]):
+            for j in np.arange(adjacency_matrix.shape[1]):
+                if adjacency_matrix[i,j] > 0:
+                    self.edge_index.append([i,j])
+                    self.edge_type.append(adjacency_matrix[i,j])
+        self.edge_index = torch.tensor(self.edge_index).type(torch.LongTensor)
+        self.edge_type = torch.tensor(self.edge_type).type(torch.LongTensor)
+
+
+    def __getitem__(self, index):
+
+        # In train and valid mode
+        # Select randomly accross the three classes
+        if self.mode in ["train", "valid"]:
+            # Retrieve the game index and the anchor
+            class_selection = random.randint(0, self.num_classes)
+            index = random.randint(0,len(self.class_indexes[class_selection])-1)
+        
+        node_features = self.spectrums[index].unsqueeze(-1)
+        if self.with_masses:
+            node_features = torch.cat((x,self.mass.unsqueeze(-1), self.mass_defect.unsqueeze(-1)),-1)
+
+        return node_features, self.edge_index, self.edge_type, self.targets[index]
+
+    def __len__(self):
+        return self.spectrums.size()[0]
+
+
+if __name__ == "__main__":
+
+
+    dataset = MSIDataset("../MSIdataset/", ["mcf7_wi38"])
+
+    with tqdm(enumerate(dataset), total=len(dataset), ncols=120) as t:
+            for i, (node_features, edge_index, edge_type, targets) in t:
+                print(node_features)
+                print(targets)

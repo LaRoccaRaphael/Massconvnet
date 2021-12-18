@@ -6,6 +6,9 @@ import numpy as np
 from datetime import datetime
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
+from dataloader import MSIDataset
+from model import GCNModel
+from train import trainer, test
 
 # Fixing seeds for reproducibility
 torch.manual_seed(0)
@@ -26,13 +29,13 @@ def main(args):
     dataset_Test = MSIDataset(args.dataset_path, split)
 
     # Create the deep learning model
-    model = GCNModel(weights=weights=args.load_weights, input_size=dataset.num_features,num_relations=dataset.num_relations)
+    model = GCNModel(weights=weights=args.load_weights, input_size=dataset_train.num_features,num_relations=dataset_train.num_relations)
     # Logging information about the model
     logging.info(model)
     total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     parameters_per_layer  = [p.numel() for p in model.parameters() if p.requires_grad]
     logging.info("Total number of parameters: " + str(total_params))
-    
+
     # Create the dataloaders for train validation and test datasets
     if not args.test_only:
         train_loader = torch.utils.data.DataLoader(dataset_Train,
@@ -50,7 +53,7 @@ def main(args):
 
     # Training parameters
     if not args.test_only:
-        criterion = ContextAwareLoss(K=dataset_Train.K_parameters)
+        criterion = torch.nn.CrossEntropyLoss()
         optimizer = torch.optim.Adam(model.parameters(), lr=args.LR, 
                                     betas=(0.9, 0.999), eps=1e-07, 
                                     weight_decay=0, amsgrad=False)
@@ -58,9 +61,9 @@ def main(args):
 
         # Start training
         trainer(train_loader, val_loader, test_loader, 
-                model, optimizer, scheduler, [criterion_segmentation, criterion_spotting], [args.loss_weight_segmentation, args.loss_weight_detection],
+                model, optimizer, scheduler, criterion,
                 model_name=args.model_name,
-                max_epochs=args.max_epochs, evaluation_frequency=args.evaluation_frequency)
+                max_epochs=args.max_epochs)
 
     # Load the best model and compute its performance
     checkpoint = torch.load(os.path.join("models", args.model_name, "model.pth.tar"))
