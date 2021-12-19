@@ -6,7 +6,7 @@ import numpy as np
 from datetime import datetime
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
-from dataloader import MSIDataset
+from dataloader import MSIDataset, collateGCN
 from model import GCNModel
 from train import trainer, test
 
@@ -23,13 +23,13 @@ def main(args):
 
     # Create Train Validation and Test datasets
     if not args.test_only:
-        dataset_train = MSIDataset(args.dataset_path, split)
-        dataset_Valid = MSIDataset(args.dataset_path, split)
+        dataset_train = MSIDataset(args.dataset_path, ["mcf7_wi38"], mode="train", with_masses=arg.with_masses)
+        dataset_Valid = MSIDataset(args.dataset_path, ["mcf7_wi38"], mode="valid", with_masses=arg.with_masses)
 
-    dataset_Test = MSIDataset(args.dataset_path, split)
+    dataset_Test = MSIDataset(args.dataset_path, ["mcf7","wi38"], mode="test", with_masses=arg.with_masses)
 
     # Create the deep learning model
-    model = GCNModel(weights=weights=args.load_weights, input_size=dataset_train.num_features,num_relations=dataset_train.num_relations)
+    model = GCNModel(weights=args.load_weights, input_size=dataset_train.num_features,num_relations=dataset_train.num_relations, num_classes=dataset.num_classes, multiplier=args.multiplier).cuda()
     # Logging information about the model
     logging.info(model)
     total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -40,15 +40,15 @@ def main(args):
     if not args.test_only:
         train_loader = torch.utils.data.DataLoader(dataset_Train,
             batch_size=args.batch_size, shuffle=True,
-            num_workers=args.max_num_worker, pin_memory=True)
+            num_workers=args.max_num_worker, pin_memory=True,collate_fn=collateGCN)
 
         val_loader = torch.utils.data.DataLoader(dataset_Valid,
             batch_size=args.batch_size, shuffle=False,
-            num_workers=args.max_num_worker, pin_memory=True)
+            num_workers=args.max_num_worker, pin_memory=True,collate_fn=collateGCN)
 
     test_loader = torch.utils.data.DataLoader(dataset_Test,
         batch_size=1, shuffle=False,
-        num_workers=1, pin_memory=True)
+        num_workers=1, pin_memory=True,collate_fn=collateGCN)
 
 
     # Training parameters
@@ -83,6 +83,8 @@ if __name__ == '__main__':
     parser.add_argument('--dataset_path',   required=True, type=str, help='Path to the dataset folder')
     parser.add_argument('--model_name',   required=False, type=str,   default="GCN",     help='named of the model to save' )
     parser.add_argument('--test_only',   required=False, action='store_true',  help='Perform testing only' )
+    parser.add_argument('--with_masses',   required=False, action='store_true',  help='include the mass and mass defect in the node features' )
+    parser.add_argument('--multiplier', required=False, type=int,   default=1,     help='Multiplier for the number of features in the GCN' )
 
     parser.add_argument('--max_epochs',   required=False, type=int,   default=1000,     help='Maximum number of epochs' )
     parser.add_argument('--batch_size', required=False, type=int,   default=32,     help='Batch size' )
