@@ -46,8 +46,8 @@ class MSIDataset(Dataset):
             tmp_spectrum = torch.clamp(torch.log(torch.transpose(torch.from_numpy(np.load(os.path.join(path,"MSI_datacube",spectrum_name+"_msi.npy"),allow_pickle=True)),0,1)),min=-10).type(torch.float)
             tmp_target = torch.from_numpy(target_class[np.where(target_MSI_name==spectrum_name)]).type(torch.LongTensor)
             if self.spectrums is not None:
-                self.spectrums = torch.cat((tmp_spectrum,self.spectrums),0)
-                self.targets = torch.cat((tmp_target,self.targets),0)
+                self.spectrums = torch.cat((self.spectrums,tmp_spectrum),0)
+                self.targets = torch.cat((self.targets,tmp_target),0)
             else:
                 self.spectrums = tmp_spectrum
                 self.targets = tmp_target
@@ -89,7 +89,7 @@ class MSIDataset(Dataset):
         if self.mode in ["train", "valid"]:
             # Retrieve the game index and the anchor
             class_selection = random.randint(0, self.num_classes-1)
-            index = random.randint(0,len(self.class_indexes[class_selection])-1)
+            index = self.class_indexes[class_selection][random.randint(0,len(self.class_indexes[class_selection])-1)]
         
         node_features = self.spectrums[index].unsqueeze(-1)
         if self.with_masses:
