@@ -51,7 +51,7 @@ class GCNModel(nn.Module):
         # Classification Head
         x = self.batchnorm(x)
         x = F.relu(self.linear_1(x))
-        x = F.relu(self.linear_2(x))
+        x = self.linear_2(x)
 
         return x
 

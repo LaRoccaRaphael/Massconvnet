@@ -43,7 +43,7 @@ class MSIDataset(Dataset):
         self.spectrums = None
         self.targets = None
         for spectrum_name in spectrum_names:
-            tmp_spectrum = torch.log(torch.transpose(torch.from_numpy(np.load(os.path.join(path,"MSI_datacube",spectrum_name+"_msi.npy"),allow_pickle=True)),0,1)).type(torch.float)
+            tmp_spectrum = torch.clamp(torch.log(torch.transpose(torch.from_numpy(np.load(os.path.join(path,"MSI_datacube",spectrum_name+"_msi.npy"),allow_pickle=True)),0,1)),min=-10).type(torch.float)
             tmp_target = torch.from_numpy(target_class[np.where(target_MSI_name==spectrum_name)]).type(torch.LongTensor)
             if self.spectrums is not None:
                 self.spectrums = torch.cat((tmp_spectrum,self.spectrums),0)
