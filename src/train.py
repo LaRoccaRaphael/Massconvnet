@@ -66,7 +66,7 @@ def trainer(train_loader,
             logging.info("Validation performance at epoch " + str(epoch+1) + " -> " + str(performance_validation["accuracy"]))
         
         # Compute the performance on the testset
-        if epoch+1%evaluation_frequency == 0:     
+        if (epoch+1)%evaluation_frequency == 0:     
             performance_test = test(
                         test_loader,
                         model, 
