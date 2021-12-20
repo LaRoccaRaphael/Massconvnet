@@ -57,8 +57,10 @@ def trainer(train_loader,
         os.makedirs(os.path.join("models", model_name), exist_ok=True)
 
         # Remember best loss and save checkpoint
-        is_better = loss_validation < best_loss
-        best_loss = min(loss_validation, best_loss)
+        #is_better = loss_validation < best_loss
+        #best_loss = min(loss_validation, best_loss)
+        is_better = performance_validation["accuracy"] > best_metric
+        best_metric = max(performance_validation["accuracy"], best_metric)
 
         # Save the best model based on loss
         if is_better:

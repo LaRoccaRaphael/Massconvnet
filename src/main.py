@@ -24,15 +24,26 @@ def main(args):
     # Create Train Validation and Test datasets
     if not args.test_only:
         print("Loading training set...")
-        dataset_Train = MSIDataset(args.dataset_path, ["mcf7_wi38"], mode="train", with_masses=args.with_masses)
+        dataset_Train = MSIDataset(args.dataset_path, ["mcf7_wi38"], 
+                                    mode="train", with_masses=args.with_masses, 
+                                    normalization=args.normalize)
         print("Loading validation set...")
-        dataset_Valid = MSIDataset(args.dataset_path, ["mcf7_wi38"], mode="valid", with_masses=args.with_masses)
+        dataset_Valid = MSIDataset(args.dataset_path, ["mcf7_wi38"], 
+                                    mode="valid", with_masses=args.with_masses, 
+                                    normalization=args.normalize)
 
     print("Loading testing set...")
-    dataset_Test = MSIDataset(args.dataset_path, ["mcf7","wi38"], mode="test", with_masses=args.with_masses)
+    dataset_Test = MSIDataset(args.dataset_path, ["mcf7","wi38"], 
+                                mode="test", with_masses=args.with_masses, 
+                                normalization=args.normalize)
 
     # Create the deep learning model
-    model = GCNModel(weights=args.load_weights, input_size=dataset_Train.num_features,num_relations=dataset_Train.num_relations, num_classes=dataset_Train.num_classes, multiplier=args.multiplier).cuda()
+    model = GCNModel(weights=args.load_weights, 
+                    input_size=dataset_Train.num_features,
+                    num_relations=dataset_Train.num_relations, 
+                    num_classes=dataset_Train.num_classes, 
+                    multiplier=args.multiplier).cuda()
+
     # Logging information about the model
     logging.info(model)
     total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -88,6 +99,8 @@ if __name__ == '__main__':
     parser.add_argument('--model_name',   required=False, type=str,   default="GCN",     help='named of the model to save' )
     parser.add_argument('--load_weights',   required=False, type=str,   default=None,     help='weights to load' )
     parser.add_argument('--test_only',   required=False, action='store_true',  help='Perform testing only' )
+    
+    parser.add_argument('--normalize',   required=False, action='store_true',  help='Perform testing only' )
     
     parser.add_argument('--with_masses',   required=False, action='store_true',  help='include the mass and mass defect in the node features' )
     parser.add_argument('--multiplier', required=False, type=int,   default=1,     help='Multiplier for the number of features in the GCN' )

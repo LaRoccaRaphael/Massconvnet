@@ -19,13 +19,14 @@ class MSIDataset(Dataset):
     :param spectrum_names: list of spectrums to load
     """
 
-    def __init__(self, path, spectrum_names, with_masses=False, mode="train"):
+    def __init__(self, path, spectrum_names, with_masses=False, mode="train", normalization=False):
 
         # Parameters
         self.path = path
         self.spectrum_names = spectrum_names
-        self.mode = mode
         self.with_masses = with_masses
+        self.mode = mode
+        self.normalization=normalization
         self.percent_train = 0.8
 
         # Load the targets
@@ -81,6 +82,13 @@ class MSIDataset(Dataset):
         self.edge_index = torch.transpose(torch.tensor(self.edge_index).type(torch.LongTensor),0,1)
         self.edge_type = torch.tensor(self.edge_type).type(torch.LongTensor).unsqueeze(-1)
 
+        if self.normalization:
+
+            self.spectrums = normalize(self.spectrums)
+            self.mass = normalize(self.mass)
+            self.mass_defect = normalize(self.mass_defect)
+
+
 
     def __getitem__(self, index):
 
@@ -112,7 +120,12 @@ class MSIDataset(Dataset):
 def collateGCN(data):
     return Batch.from_data_list(data)
 
+def normalize(data):
 
+    mean = data.mean()
+    std = data.std()
+
+    return (data-mean)/std
 
 if __name__ == "__main__":
 
