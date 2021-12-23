@@ -10,6 +10,87 @@ from torch.utils.data import Dataset
 from torch_geometric.data import Data
 from torch_geometric.data import Batch
 
+class MSIRawDataset(Dataset):
+    
+    def __init__(self, path, spectrum_names, with_masses=False, mode="train", normalization=False):
+        
+        # Parameters
+        self.path = path
+        self.spectrum_names = spectrum_names
+        self.with_masses = with_masses
+        self.mode = mode
+        self.normalization=normalization
+        self.percent_train = 0.8
+        
+        
+        # Load sample information
+        df = pd.read_csv(os.path.join(path,"Annot_table.csv"),sep="\t", header=0)
+        self.num_classes = np.max(df['Annotations'])+1
+        
+        index_msi = []
+        for sm in self.spectrum_names:
+            index_msi.append(df.loc[df['MSI name'] == sm].index.to_numpy())
+        
+        index_msi = np.concatenate(index_msi)
+        self.target_data = df.loc[index_msi].copy()
+        
+        
+        # graph parameters
+        self.num_features = 1 if not with_masses else 3
+        self.num_relations = 17
+
+        # Get the indexes of each class
+        self.class_indexes = list()
+        for i in np.arange(self.num_classes):
+            self.class_indexes.append(self.target_data.loc[self.target_data['Annotations'] == i].index.to_numpy())
+
+            if self.mode=="train":
+                self.class_indexes[-1] = self.class_indexes[-1][:int(len(self.class_indexes[-1])*self.percent_train)]
+            elif self.mode=="valid":
+                self.class_indexes[-1] = self.class_indexes[-1][int(len(self.class_indexes[-1])*self.percent_train):]
+            
+                
+    def __getitem__(self, index):
+
+        # In train and valid mode
+        # Select randomly accross the three classes
+        index = self.target_data.index[index]
+        
+        if self.mode in ["train", "valid"]:
+            # Retrieve the game index and the anchor
+            class_selection = random.randint(0, self.num_classes-1)
+            index = self.class_indexes[class_selection][random.randint(0,len(self.class_indexes[class_selection])-1)]
+        
+        # load individual spectrum (km,kmd,intensity)
+        
+        ## todo change path
+        spec = np.load(self.path + '/MSI_centroid/' + self.target_data.loc[index]['MSI name'] + '_cent_p_3000/spec_' + str(self.target_data.loc[index]['MSI pixel id']) + '.npy')
+        node_features = normalize(torch.clamp(torch.log(torch.from_numpy(spec[:,2])),min=-10).type(torch.float)).unsqueeze(-1)
+        
+        if self.with_masses:
+            
+            # todo change the standardization by a min max normalization
+            km = normalize(torch.from_numpy(spec[:,0]).type(torch.float))
+            kmd = normalize(torch.from_numpy(spec[:,1]).type(torch.float))
+            node_features = torch.cat((node_features,km.unsqueeze(-1), kmd.unsqueeze(-1)),-1)
+        #Store the data for batching
+        
+        # load individual spectrum graph (index1,index2,edgetype)
+        graph = np.load(self.path + '/MSI_centroid/' + self.target_data.loc[index]['MSI name'] + '_cent_p_3000/graph_' + str(self.target_data.loc[index]['MSI pixel id']) + '.npy')
+        
+        data = Data(x=node_features,y=torch.from_numpy(np.asarray(self.target_data.loc[index]['Annotations'])), edge_index=torch.transpose(torch.tensor(graph[:,0:2]).type(torch.LongTensor),0,1), edge_attr=torch.tensor(graph[:,2]).type(torch.LongTensor).unsqueeze(-1))
+        
+        return data
+
+
+    def __len__(self):
+        if self.mode=="train":
+            return int(np.shape(self.target_data)[0]*self.percent_train)
+        elif self.mode == "valid":
+            return int(np.shape(self.target_data)[0]*(1-self.percent_train))
+
+        return np.shape(self.target_data)[0]
+
 class MSIDataset(Dataset):
     """
     Dataset loader for the MSI dataset
@@ -94,11 +175,13 @@ class MSIDataset(Dataset):
 
         # In train and valid mode
         # Select randomly accross the three classes
+        
         if self.mode in ["train", "valid"]:
             # Retrieve the game index and the anchor
             class_selection = random.randint(0, self.num_classes-1)
             index = self.class_indexes[class_selection][random.randint(0,len(self.class_indexes[class_selection])-1)]
         
+        print(index)
         node_features = self.spectrums[index].unsqueeze(-1)
         if self.with_masses:
             node_features = torch.cat((node_features,self.mass.unsqueeze(-1), self.mass_defect.unsqueeze(-1)),-1)
@@ -130,7 +213,7 @@ def normalize(data):
 if __name__ == "__main__":
 
 
-    dataset = MSIDataset("../MSIdataset/", ["mcf7_wi38"], mode="train")
+    dataset = MSIRawDataset("../MSIdataset/", ["mcf7_wi38"], mode="train")
 
     dataloader = torch.utils.data.DataLoader(dataset,
             batch_size=3, shuffle=True,

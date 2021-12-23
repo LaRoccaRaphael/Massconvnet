@@ -6,7 +6,7 @@ import numpy as np
 from datetime import datetime
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
-from dataloader import MSIDataset, collateGCN
+from dataloader import MSIDataset,MSIRawDataset, collateGCN
 from model import GCNModel
 from train import trainer, test
 
@@ -24,16 +24,16 @@ def main(args):
     # Create Train Validation and Test datasets
     if not args.test_only:
         print("Loading training set...")
-        dataset_Train = MSIDataset(args.dataset_path, ["mcf7_wi38"], 
+        dataset_Train = MSIRawDataset(args.dataset_path, ["mcf7_wi38"], 
                                     mode="train", with_masses=args.with_masses, 
                                     normalization=args.normalize)
         print("Loading validation set...")
-        dataset_Valid = MSIDataset(args.dataset_path, ["mcf7_wi38"], 
+        dataset_Valid = MSIRawDataset(args.dataset_path, ["mcf7_wi38"], 
                                     mode="valid", with_masses=args.with_masses, 
                                     normalization=args.normalize)
 
     print("Loading testing set...")
-    dataset_Test = MSIDataset(args.dataset_path, ["mcf7","wi38"], 
+    dataset_Test = MSIRawDataset(args.dataset_path, ["mcf7","wi38"], 
                                 mode="test", with_masses=args.with_masses, 
                                 normalization=args.normalize)
 
