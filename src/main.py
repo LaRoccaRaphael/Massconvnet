@@ -24,16 +24,18 @@ def main(args):
     # Create Train Validation and Test datasets
     if not args.test_only:
         print("Loading training set...")
-        dataset_Train = MSIRawDataset(args.dataset_path, ["mcf7_wi38"], 
+        
+        
+        dataset_Train = MSIRawDataset(args.dataset_path,args.pre_process_param_name,args.network_param_name,
                                     mode="train", with_masses=args.with_masses, 
                                     normalization=args.normalize)
         print("Loading validation set...")
-        dataset_Valid = MSIRawDataset(args.dataset_path, ["mcf7_wi38"], 
+        dataset_Valid = MSIRawDataset(args.dataset_path,args.pre_process_param_name,args.network_param_name,
                                     mode="valid", with_masses=args.with_masses, 
                                     normalization=args.normalize)
 
     print("Loading testing set...")
-    dataset_Test = MSIRawDataset(args.dataset_path, ["mcf7","wi38"], 
+    dataset_Test = MSIRawDataset(args.dataset_path,args.pre_process_param_name,args.network_param_name,
                                 mode="test", with_masses=args.with_masses, 
                                 normalization=args.normalize)
 
@@ -93,9 +95,13 @@ def main(args):
 if __name__ == '__main__':
 
     # Load the arguments
+    
     parser = ArgumentParser(description='GCN for MSI', formatter_class=ArgumentDefaultsHelpFormatter)
 
     parser.add_argument('--dataset_path',   required=True, type=str, help='Path to the dataset folder')
+    parser.add_argument('--pre_process_param_name',   required=True, type=str, help='Name of the json file for MSI preprocessing')
+    parser.add_argument('--network_param_name',   required=True, type=str, help='Name of the json file for network parameters')
+    
     parser.add_argument('--model_name',   required=False, type=str,   default="GCN",     help='named of the model to save' )
     parser.add_argument('--load_weights',   required=False, type=str,   default=None,     help='weights to load' )
     parser.add_argument('--test_only',   required=False, action='store_true',  help='Perform testing only' )

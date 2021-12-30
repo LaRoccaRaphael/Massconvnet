@@ -5,6 +5,9 @@ import numpy as np
 from pyimzml.ImzMLParser import ImzMLParser
 from scipy.signal import find_peaks
 import os
+import glob
+import json
+ 
 
 #python function to convert profile imzML to multiple files containing single centroided spectrum
 def generate_kendrick_param(peaks):
@@ -65,15 +68,18 @@ def generate_graph_from_spectrum(spectrum,mass_diff,tolerance):
                 selected_index = db_ind[np.argmax(intensity[db_ind])]
                 spectrum_edge_param.append([i,selected_index,j])
     
-
     return(spectrum_edge_param)
 
-def profile_to_cent(massspec_id,mzs,intensities,max_peaks):
+def profile_to_cent(mzs,intensities,max_peaks,centroid):
         intensity_arr = np.array(intensities)
 
         # Peak detection
-        peaks, _ = find_peaks(intensity_arr,distance=10,width=5)
-        #print(len(peaks))
+        if centroid == False:
+            peaks, _ = find_peaks(intensity_arr,distance=3,width=2)
+        else:
+            peaks = np.arange(0,len(intensity_arr),1)
+            
+        print(peaks)
 
         # Select the max_peaks most intense peaks
         peaks = peaks[np.argsort(intensity_arr[peaks])[::-1][:max_peaks]]
@@ -93,36 +99,81 @@ def profile_to_cent(massspec_id,mzs,intensities,max_peaks):
 
 # Load the arguments
 my_parser = argparse.ArgumentParser(allow_abbrev=False)
-my_parser.add_argument('-i','--input', action='store', type=str, required=True,help='msi input file')
-my_parser.add_argument('-mp','--max_peaks', action='store', type=int, required=True,help='maximum number of peaks allow per spectrum')
-my_parser.add_argument('-o','--output', action='store', type=str, required=True,help='ouput dir')
+my_parser.add_argument('-i','--input', action='store', type=str, required=True,help='json file')
+
 
 args = my_parser.parse_args()
 
-msi = args.input
-output_dir = args.output
-max_peaks = args.max_peaks
+param_json_path = args.input
 
-mass_diff = [28.0313,14.01565,2.01565,15.99491464,21.981945,37.955885,189.0426,1.0033,2.0067,26.01565007,43.98982928,44.99765432,18.01056471,27.99491464,16.01872408,15.01089905,13.97926]
-tolerance = 0.001
+# load parameters
+param = []
+with open(param_json_path) as json_file:
+    param = json.load(json_file)
 
-# Write the new ouput directory
-filename = os.path.basename(msi).split('.imzML')[0]
-new_dir = output_dir + filename + "_cent_p_" + str(max_peaks) +"/"
-os.mkdir(new_dir)
-print("Directory '% s' created" % new_dir)
 
-# Iterate through the imzml
-p = ImzMLParser(msi)
-massspec_id = 0
-for idx, (x,y,z) in enumerate(p.coordinates):
-    print(massspec_id)
-        
-    mzs, intensities = p.getspectrum(idx)
-    spectrum = profile_to_cent(massspec_id,mzs,intensities,max_peaks)
-    np.save(new_dir + 'spec_' + str(massspec_id), spectrum)
+output_dir = param['output_dir']
+msi_dir = param['msi_dir']
+tolerance = param['tolerance']
+mass_diff = param['mass_diff']
+max_peaks = param['max_peaks']
 
-    spectrum_edge_param = generate_graph_from_spectrum(spectrum,mass_diff,tolerance)
-    np.save(new_dir + 'graph_' + str(massspec_id), spectrum_edge_param)
+# create a directory for the parameters
+os.mkdir(output_dir + os.path.splitext(os.path.basename(param_json_path))[0])
+output_dir= output_dir + os.path.splitext(os.path.basename(param_json_path))[0] + "/"
+
+print("Directory '% s' created" % output_dir)
+
+
+if param['file_type'] == 'imzML':
     
-    massspec_id += 1 
+    for it in os.scandir(msi_dir):
+        if it.is_dir():
+            msi_class_dir = it.path
+            msi_class = os.path.basename(it.path)
+
+            os.mkdir(output_dir + msi_class)
+            
+            # Iterate through the imzml
+            massspec_id = 0
+            
+            for file in glob.glob(msi_class_dir + "/*.imzML"):
+         
+                p = ImzMLParser(file)
+                for idx, (x,y,z) in enumerate(p.coordinates):
+                    print(massspec_id)
+
+                    mzs, intensities = p.getspectrum(idx)
+                    spectrum = profile_to_cent(mzs,intensities,max_peaks,True)
+                    np.save(output_dir+ msi_class +"/" + 'spec_' + str(massspec_id), spectrum)
+
+                    spectrum_edge_param = generate_graph_from_spectrum(spectrum,mass_diff,tolerance)
+                    np.save(output_dir+ msi_class +"/" + 'graph_' + str(massspec_id), spectrum_edge_param)
+
+                    massspec_id += 1 
+        
+else:
+    
+
+    # Iterate through a diretory of csv files 
+    for it in os.scandir(msi_dir):
+        if it.is_dir():
+            msi_class_dir = it.path
+            msi_class = os.path.basename(it.path)
+
+            os.mkdir(output_dir + msi_class)
+
+            massspec_id = 0
+            for file in glob.glob(msi_class_dir + "/*.csv"):
+                spectrum = np.genfromtxt(file, delimiter=',')
+
+                mzs = spectrum[:,0]
+                intensities = spectrum[:,1]
+
+                spectrum = profile_to_cent(mzs,intensities,max_peaks,False)
+                np.save(output_dir+ msi_class +"/" + 'spec_' + str(massspec_id), spectrum)
+
+                spectrum_edge_param = generate_graph_from_spectrum(spectrum,mass_diff,tolerance)
+                np.save(output_dir + msi_class +"/"+ 'graph_' + str(massspec_id), spectrum_edge_param)
+                print(massspec_id)
+                massspec_id += 1 
