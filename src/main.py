@@ -9,6 +9,7 @@ from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from dataloader import MSIDataset,MSIRawDataset, collateGCN
 from model import GCNModel
 from train import trainer, test
+import json
 
 # Fixing seeds for reproducibility
 torch.manual_seed(0)
@@ -127,9 +128,23 @@ if __name__ == '__main__':
     if not isinstance(numeric_level, int):
         raise ValueError('Invalid log level: %s' % args.loglevel)
 
-    os.makedirs(os.path.join("models", args.model_name), exist_ok=True)
-    log_path = os.path.join("models", args.model_name,
-                            datetime.now().strftime('%Y-%m-%d_%H-%M-%S.log'))
+    os.makedirs(os.path.join(args.dataset_path,"models", args.model_name), exist_ok=True)
+    
+    
+    network_param_json_path = args.dataset_path + '/parameters/network/' + args.network_param_name + '.json'
+    network_params = []
+    with open(network_param_json_path) as json_file:
+        network_params = json.load(json_file)
+
+
+    #log_path = os.path.join("models", args.model_name,datetime.now().strftime('%Y-%m-%d_%H-%M-%S.log'))
+    
+    log_path = os.path.join(args.dataset_path,"models",args.model_name,args.pre_process_param_name + "_" + args.network_param_name)
+    
+    if network_params['training samples'] == "kfold":
+        log_path = os.path.join(args.dataset_path,"models",args.model_name,args.pre_process_param_name + "_" + args.network_param_name)
+    
+    
     logging.basicConfig(
         level=numeric_level,
         format=

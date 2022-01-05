@@ -61,7 +61,7 @@ def generate_graph_from_spectrum(spectrum,mass_diff,tolerance):
             exp_peak = peaks[i]+mass_diff[j]
             
             # peaks need to be ordered
-            db_ind = binarySearch_tol(np.append(peaks,np.max(peaks)+1),
+            db_ind = binarySearch_tol(np.append(peaks,np.max(peaks)+5),
                                       0, len(peaks)-1, exp_peak,tolerance)
             
             if db_ind != -1:

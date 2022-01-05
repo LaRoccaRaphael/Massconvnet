@@ -10,6 +10,8 @@ from torch.utils.data import Dataset
 from torch_geometric.data import Data
 from torch_geometric.data import Batch
 import json
+from sklearn.model_selection import StratifiedKFold
+
 
 class MSIRawDataset(Dataset):
     
@@ -55,7 +57,29 @@ class MSIRawDataset(Dataset):
         
         # Load sample information
         df = pd.read_csv(os.path.join(path,"Annot_table.csv"),sep=",", header=0)
+        if network_params['Data augmentation'] >0 : 
+            for i in range(0,network_params['Data augmentation']):
+                n_df = pd.read_csv(os.path.join(path,"Annot_table.csv"),sep=",", header=0)
+                df = pd.concat([df, n_df], axis=0,ignore_index=True)
+
         self.num_classes = np.max(df[self.network_params['Annotation name']])+1
+        
+        
+        # StratifiedKFold 
+        # 'training samples' =="kfold"
+        if network_params['training samples'] == "kfold": 
+            skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=self.network_params['kfold seed'])
+            list_train = []
+            list_test = []
+            
+            for train, test in skf.split(df['MSI pixel id'], df[self.network_params['Annotation name']]):
+                list_train.append(train)
+                list_test.append(test)
+                
+            train_index_kfold = list_train[self.network_params['kfold K']]
+            test_index_kfold = list_test[self.network_params['kfold K']]
+            df = pd.concat([df.loc[test_index_kfold],df.loc[train_index_kfold]])
+            df['kfold'] =np.concatenate((np.repeat(False,len(test_index_kfold)), np.repeat(True,len(train_index_kfold))))
         
         
         if self.mode=="test":
@@ -96,7 +120,8 @@ class MSIRawDataset(Dataset):
      
         # normalize inteisty features
         node_features = normalize(torch.clamp(torch.log(torch.from_numpy(spec[:,2])),min=-10).type(torch.float)).unsqueeze(-1)
-        
+      
+     
         if self.with_masses:
             
             # normalize mass features
@@ -253,10 +278,12 @@ def load_spectrum(path_spectrum,path_graph,signal_degradation_params,pre_process
     spec = np.load(path_spectrum)
     graph = np.load(path_graph)
     
-    
     applied_degradation = signal_degradation_params['signal degradation']
     
     if  signal_degradation_params['only test'] & (mode != "test"):
+        applied_degradation = False
+        
+    if  signal_degradation_params['only train'] & (mode != "train"):
         applied_degradation = False
     
     if applied_degradation :
@@ -304,6 +331,29 @@ def load_spectrum(path_spectrum,path_graph,signal_degradation_params,pre_process
                     graph[i,1] = new_index_dict[graph[i,1]]
 
             graph = graph[edgetokeep.astype(bool),:]
+            
+        if signal_degradation_params['random peaks removal param'] <1:
+            # decrease the observed peaks from a given proportion
+            index_peak = np.where(np.random.choice([0, 1], size=(len(spec[:,0]),), p=[1-signal_degradation_params['random peaks removal param'], signal_degradation_params['random peaks removal param']]))[0]
+            spec = spec[index_peak,:]
+            spec = spec[np.argsort(spec[:,0]),:]
+
+            # create a dictionnary from old peak index to new one according to the sorted spectrum
+            keys_list = index_peak[np.argsort(index_peak)] 
+            values_list = np.arange(0,len(keys_list),1)
+            zip_iterator = zip(keys_list, values_list)
+            new_index_dict = dict(zip_iterator)
+
+            # update the edge index 
+            edgetokeep = np.zeros(len(graph[:,0]))
+            for i in range(0,len(graph[:,0])):
+                if (graph[i,0] in new_index_dict) & (graph[i,1] in new_index_dict):
+                    edgetokeep[i] = 1
+                    graph[i,0] = new_index_dict[graph[i,0]]
+                    graph[i,1] = new_index_dict[graph[i,1]]
+
+            graph = graph[edgetokeep.astype(bool),:]
+            
             
             
     if signal_degradation_params['edge index to remove'] != None:
