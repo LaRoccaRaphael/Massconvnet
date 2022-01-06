@@ -64,7 +64,6 @@ def trainer(train_loader,
 
         # Save the best model based on loss
         if is_better:
-            torch.save(state, best_model_path)
             logging.info("Validation performance at epoch " + str(epoch+1) + " -> " + str(performance_validation["accuracy"]))
         
         # Compute the performance on the testset
@@ -74,6 +73,7 @@ def trainer(train_loader,
                         model, 
                         model_name)
             logging.info("Test performance at epoch " + str(epoch+1) + " -> " + str(performance_test["accuracy"]))
+            torch.save(state, best_model_path)
              
         # Learning rate scheduler update
         prevLR = optimizer.param_groups[0]['lr']
