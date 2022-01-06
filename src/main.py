@@ -139,10 +139,8 @@ if __name__ == '__main__':
 
     #log_path = os.path.join("models", args.model_name,datetime.now().strftime('%Y-%m-%d_%H-%M-%S.log'))
     
-    log_path = os.path.join(args.dataset_path,"models",args.model_name,args.pre_process_param_name + "_" + args.network_param_name)
+    log_path = os.path.join(args.dataset_path,"models",args.model_name,args.pre_process_param_name + "_" + args.network_param_name+".log")
     
-    if network_params['training samples'] == "kfold":
-        log_path = os.path.join(args.dataset_path,"models",args.model_name,args.pre_process_param_name + "_" + args.network_param_name)
     
     
     logging.basicConfig(
