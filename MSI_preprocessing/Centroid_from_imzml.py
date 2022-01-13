@@ -64,9 +64,16 @@ def generate_graph_from_spectrum(spectrum,mass_diff,tolerance):
             db_ind = binarySearch_tol(np.append(peaks,np.max(peaks)+5),
                                       0, len(peaks)-1, exp_peak,tolerance)
             
+            
+            # TODO add an option to consider all edges, not only the max
             if db_ind != -1:
-                selected_index = db_ind[np.argmax(intensity[db_ind])]
-                spectrum_edge_param.append([i,selected_index,j])
+                if mass_diff[j] >0:
+                    selected_index = db_ind[np.argmax(intensity[db_ind])]
+                    spectrum_edge_param.append([i,selected_index,j])
+                
+                if mass_diff[j] <=0:
+                    selected_index = db_ind[np.argmax(intensity[db_ind])]
+                    spectrum_edge_param.append([selected_index,i,j])
     
     return(spectrum_edge_param)
 

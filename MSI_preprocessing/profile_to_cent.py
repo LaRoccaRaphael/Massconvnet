@@ -10,9 +10,12 @@ from scipy.signal import find_peaks
 
 
 def profile_to_cent(msi,output_file):
+    ct = 0
     with ImzMLWriter(output_file) as w:
         p = ImzMLParser(msi)
         for idx, (x,y,z) in enumerate(p.coordinates):
+            print(ct,x,y)
+            ct = ct+1
             mzs, intensities = p.getspectrum(idx)
             intensity_arr = np.array(intensities)
             peaks, _ = find_peaks(intensity_arr,distance=3,width=2)

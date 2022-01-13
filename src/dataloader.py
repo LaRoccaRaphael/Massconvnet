@@ -57,12 +57,7 @@ class MSIRawDataset(Dataset):
         
         # Load sample information
         df = pd.read_csv(os.path.join(path,"Annot_table.csv"),sep=",", header=0)
-        if network_params['Data augmentation'] >0 : 
-            for i in range(0,network_params['Data augmentation']):
-                n_df = pd.read_csv(os.path.join(path,"Annot_table.csv"),sep=",", header=0)
-                df = pd.concat([df, n_df], axis=0,ignore_index=True)
-
-        self.num_classes = np.max(df[self.network_params['Annotation name']])+1
+        df['initial index'] = np.arange(0,np.shape(df)[0],1)
         
         
         # StratifiedKFold 
@@ -80,13 +75,24 @@ class MSIRawDataset(Dataset):
             test_index_kfold = list_test[self.network_params['kfold K']]
             df = pd.concat([df.loc[test_index_kfold],df.loc[train_index_kfold]])
             df['kfold'] =np.concatenate((np.repeat(False,len(test_index_kfold)), np.repeat(True,len(train_index_kfold))))
-        
+            
+
+        self.num_classes = np.max(df[self.network_params['Annotation name']])+1
         
         if self.mode=="test":
             self.target_data = df.loc[df[self.network_params['training samples']] ==False].copy()
+            
+            
         else:
+            # Data augmentation
+            if network_params['Data augmentation'] >1: 
+                n_df = df.copy()
+                for i in range(0,network_params['Data augmentation']-1):
+                    df = pd.concat([df, n_df], axis=0,ignore_index=True)
+            
             self.target_data = df.loc[df[self.network_params['training samples']] ==True].copy()
             
+        print(np.unique(self.target_data['initial index']))
             
             
 
@@ -120,18 +126,24 @@ class MSIRawDataset(Dataset):
      
         # normalize inteisty features
         node_features = normalize(torch.clamp(torch.log(torch.from_numpy(spec[:,2])),min=-10).type(torch.float)).unsqueeze(-1)
-      
+        
      
         if self.with_masses:
             
             # normalize mass features
             massrange_diff = self.pre_process_param['mass range'][1]-self.pre_process_param['mass range'][0]
             km = torch.from_numpy((spec[:,0]-(massrange_diff/2))/(massrange_diff/2)).type(torch.float)
+            #km = torch.from_numpy(normalize(spec[:,0])).type(torch.float)
             kmd = torch.from_numpy((spec[:,1]+0.5)/0.5).type(torch.float)
+            #kmd = torch.from_numpy(normalize(spec[:,1])).type(torch.float)
             node_features = torch.cat((node_features,km.unsqueeze(-1), kmd.unsqueeze(-1)),-1)
 
         
         # Store data
+        #print("shape graph ", np.shape(graph)," ",len(np.shape(graph)))
+        if len(np.shape(graph)):
+            graph = np.zeros((1,3))
+            
         data = Data(x=node_features,y=torch.from_numpy(np.asarray(self.target_data.loc[index][self.network_params['Annotation name']])), edge_index=torch.transpose(torch.tensor(graph[:,[0,1]]).type(torch.LongTensor),0,1), edge_attr=torch.tensor(graph[:,2]).type(torch.LongTensor).unsqueeze(-1))
         
         return data
@@ -263,6 +275,13 @@ def normalize(data):
 
     return (data-mean)/std
 
+#def normalize(data):
+
+#    dmax = data.max()
+#    dmin = data.min()
+
+#    return (data-dmin)/(dmax - dmin)
+
 def generate_kendrick_param(peaks):
     md = 1
     #md = 14/14.0156500641
@@ -287,6 +306,7 @@ def load_spectrum(path_spectrum,path_graph,signal_degradation_params,pre_process
         applied_degradation = False
     
     if applied_degradation :
+        print("applied signal degradation")
         
         if signal_degradation_params['spectral resolution param'] >0:
             # shift all the masses from different random values
