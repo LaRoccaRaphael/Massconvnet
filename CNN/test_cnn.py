@@ -92,14 +92,19 @@ def build_model_lenet():
     return model
 
 
+df = pd.read_csv("/media/USB/DL_MASS/Dataset/METASPACE_IM/Annot_table.csv",sep=",", header=0)
+sub_df = df.loc[df['train random']==True]
 
-df = pd.read_csv("/media/USB/DL_MASS/Dataset/tof_macrocolonies/Annot_table.csv",sep=",", header=0)
-sub_df = df.loc[df['train']==True]
+file = "/media/USB/DL_MASS/Dataset/METASPACE_IM/MSI/centroid_data/param_1/"
 
 # to change according to the sample
-mass_range = [200,2100]
+mass_range = [200,1400]
 tol = 0.1
 nb_classes = 2
+
+mat_bin_vec = load_spectra(file,mass_range,tol,df)
+np.save("/media/USB/DL_MASS/Dataset/METASPACE_IM/MSI/centroid_data/mat_bin_vec", mat_bin_vec)
+
 
 mat_bin_vec = np.load("/media/USB/DL_MASS/Dataset/tof_mat_bin_vec_train.npy")
 

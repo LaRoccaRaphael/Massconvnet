@@ -7,6 +7,7 @@ from scipy.signal import find_peaks
 import os
 import glob
 import json
+import pandas as pd
  
 
 #python function to convert profile imzML to multiple files containing single centroided spectrum
@@ -124,6 +125,9 @@ msi_dir = param['msi_dir']
 tolerance = param['tolerance']
 mass_diff = param['mass_diff']
 max_peaks = param['max_peaks']
+annot_table_name = param['annot_table']
+
+annot_table = pd.read_csv(annot_table_name)  
 
 # create a directory for the parameters
 os.mkdir(output_dir + os.path.splitext(os.path.basename(param_json_path))[0])
@@ -138,26 +142,37 @@ if param['file_type'] == 'imzML':
         if it.is_dir():
             msi_class_dir = it.path
             msi_class = os.path.basename(it.path)
+            if np.sum(annot_table["MSI name"] == msi_class) >0:
+                sub_df = annot_table.loc[annot_table["MSI name"] == msi_class].copy()
 
-            os.mkdir(output_dir + msi_class)
-            
-            # Iterate through the imzml
-            massspec_id = 0
-            
-            for file in glob.glob(msi_class_dir + "/*.imzML"):
-         
-                p = ImzMLParser(file)
-                for idx, (x,y,z) in enumerate(p.coordinates):
-                    print(massspec_id)
+                os.mkdir(output_dir + msi_class)
 
-                    mzs, intensities = p.getspectrum(idx)
-                    spectrum = profile_to_cent(mzs,intensities,max_peaks,True)
-                    np.save(output_dir+ msi_class +"/" + 'spec_' + str(massspec_id), spectrum)
+                # Iterate through the imzml
+                ct_spectrum = 0
+                iterator_df = sub_df["origianl MSI pixel id"].to_numpy()[0]
+                massspec_id = 0
+                #sub_df["origianl MSI pixel id"].to_numpy()[0]
 
-                    spectrum_edge_param = generate_graph_from_spectrum(spectrum,mass_diff,tolerance)
-                    np.save(output_dir+ msi_class +"/" + 'graph_' + str(massspec_id), spectrum_edge_param)
+                for file in glob.glob(msi_class_dir + "/*.imzML"):
 
-                    massspec_id += 1 
+                    p = ImzMLParser(file)
+                    for idx, (x,y,z) in enumerate(p.coordinates):
+
+                        if ct_spectrum ==iterator_df:
+                            print(massspec_id)
+
+                            mzs, intensities = p.getspectrum(idx)
+                            spectrum = profile_to_cent(mzs,intensities,max_peaks,True)
+                            np.save(output_dir+ msi_class +"/" + 'spec_' + str(massspec_id), spectrum)
+
+                            spectrum_edge_param = generate_graph_from_spectrum(spectrum,mass_diff,tolerance)
+                            np.save(output_dir+ msi_class +"/" + 'graph_' + str(massspec_id), spectrum_edge_param)
+
+                            massspec_id += 1
+                            # todo change and put in the first condition 
+                            if massspec_id< np.shape(sub_df)[0]:
+                                iterator_df = sub_df["origianl MSI pixel id"].to_numpy()[massspec_id]
+                        ct_spectrum += 1                    
         
 else:
     

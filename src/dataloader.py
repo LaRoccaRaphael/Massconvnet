@@ -56,8 +56,10 @@ class MSIRawDataset(Dataset):
         
         
         # Load sample information
-        df = pd.read_csv(os.path.join(path,"Annot_table.csv"),sep=",", header=0)
+        #df = pd.read_csv(os.path.join(path,"Annot_table.csv"),sep=",", header=0)
+        df = pd.read_csv(self.pre_process_param["annot_table"],sep=",", header=0)
         df['initial index'] = np.arange(0,np.shape(df)[0],1)
+        df = df.sample(frac = 1,random_state=0)
         
         
         # StratifiedKFold 
@@ -95,7 +97,6 @@ class MSIRawDataset(Dataset):
         print(np.unique(self.target_data['initial index']))
             
             
-
         # Get the indexes of each class
         self.class_indexes = list()
         for i in np.arange(self.num_classes):
@@ -124,8 +125,9 @@ class MSIRawDataset(Dataset):
         
         spec,graph = load_spectrum(path_spectrum,path_graph,self.network_params,self.pre_process_param,self.mode)
      
-        # normalize inteisty features
+        # normalize intensity features
         node_features = normalize(torch.clamp(torch.log(torch.from_numpy(spec[:,2])),min=-10).type(torch.float)).unsqueeze(-1)
+        #node_features = normalize(torch.clamp(torch.from_numpy(spec[:,2]),min=-10).type(torch.float)).unsqueeze(-1)
         
      
         if self.with_masses:
@@ -191,7 +193,8 @@ class MSIDataset(Dataset):
         self.spectrums = None
         self.targets = None
         for spectrum_name in spectrum_names:
-            tmp_spectrum = torch.clamp(torch.log(torch.transpose(torch.from_numpy(np.load(os.path.join(path,"MSI_datacube",spectrum_name+"_msi.npy"),allow_pickle=True)),0,1)),min=-10).type(torch.float)
+            #tmp_spectrum = torch.clamp(torch.log(torch.transpose(torch.from_numpy(np.load(os.path.join(path,"MSI_datacube",spectrum_name+"_msi.npy"),allow_pickle=True)),0,1)),min=-10).type(torch.float)
+            tmp_spectrum = torch.clamp(torch.transpose(torch.from_numpy(np.load(os.path.join(path,"MSI_datacube",spectrum_name+"_msi.npy"),allow_pickle=True)),0,1),min=-10).type(torch.float)
             tmp_target = torch.from_numpy(target_class[np.where(target_MSI_name==spectrum_name)]).type(torch.LongTensor)
             if self.spectrums is not None:
                 self.spectrums = torch.cat((self.spectrums,tmp_spectrum),0)
