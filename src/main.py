@@ -96,6 +96,7 @@ def main(args):
     if args.cam_only:
 
         CAM(test_loader, model)
+        return
 
     return performance
 
