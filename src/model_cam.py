@@ -74,6 +74,7 @@ class GCNModel(nn.Module):
 
         torch.save(CAM_map.cpu(),"models/CAM_Model/Testset/CAM_" + str(self.cam_counter) + ".pt")
         torch.save(output.cpu(),"models/CAM_Model/Testset/OUT" + str(self.cam_counter) + ".pt")
+        self.cam_counter += 1
 
 
 
