@@ -7,8 +7,8 @@ from datetime import datetime
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
 from dataloader import MSIDataset,MSIRawDataset, collateGCN
-from model import GCNModel
-from train import trainer, test
+from model_cam import GCNModel
+from train import trainer, test, CAM
 import json
 
 # Fixing seeds for reproducibility
@@ -23,7 +23,7 @@ def main(args):
         logging.info(arg.rjust(15) + " : " + str(getattr(args, arg)))
 
     # Create Train Validation and Test datasets
-    if not args.test_only:
+    if not args.test_only and not args.cam_only:
         print("Loading training set...")
         
         
@@ -42,9 +42,9 @@ def main(args):
 
     # Create the deep learning model
     model = GCNModel(weights=args.load_weights, 
-                    input_size=dataset_Train.num_features,
-                    num_relations=dataset_Train.num_relations, 
-                    num_classes=dataset_Train.num_classes, 
+                    input_size=dataset_Test.num_features,
+                    num_relations=dataset_Test.num_relations, 
+                    num_classes=dataset_Test.num_classes, 
                     multiplier=args.multiplier).cuda()
 
     # Logging information about the model
@@ -54,7 +54,7 @@ def main(args):
     logging.info("Total number of parameters: " + str(total_params))
 
     # Create the dataloaders for train validation and test datasets
-    if not args.test_only:
+    if not args.test_only and not args.cam_only:
         train_loader = torch.utils.data.DataLoader(dataset_Train,
             batch_size=args.batch_size, shuffle=True,
             num_workers=args.max_num_worker, pin_memory=True,collate_fn=collateGCN)
@@ -69,7 +69,7 @@ def main(args):
 
 
     # Training parameters
-    if not args.test_only:
+    if not args.test_only and not args.cam_only:
         criterion = torch.nn.CrossEntropyLoss()
         optimizer = torch.optim.Adam(model.parameters(), lr=args.LR, 
                                     betas=(0.9, 0.999), eps=1e-07, 
@@ -86,10 +86,16 @@ def main(args):
     checkpoint = torch.load(os.path.join("models", args.model_name, "model.pth.tar"))
     model.load_state_dict(checkpoint['state_dict'])
 
-    performance = test(test_loader, model=model, model_name=args.model_name)
-    print(performance)
-    logging.info("Best performance at end of training ")
-    logging.info("Performance: " +  str(performance["accuracy"]))
+    if not args.cam_only:
+
+        performance = test(test_loader, model=model, model_name=args.model_name)
+        print(performance)
+        logging.info("Best performance at end of training ")
+        logging.info("Performance: " +  str(performance["accuracy"]))
+
+    if args.cam_only:
+
+        CAM(test_loader, model)
 
     return performance
 
@@ -106,6 +112,7 @@ if __name__ == '__main__':
     parser.add_argument('--model_name',   required=False, type=str,   default="GCN",     help='named of the model to save' )
     parser.add_argument('--load_weights',   required=False, type=str,   default=None,     help='weights to load' )
     parser.add_argument('--test_only',   required=False, action='store_true',  help='Perform testing only' )
+    parser.add_argument('--cam_only',   required=False, action='store_true',  help='Perform Cam testing only' )
     
     parser.add_argument('--normalize',   required=False, action='store_true',  help='Perform testing only' )
     

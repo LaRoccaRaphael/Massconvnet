@@ -175,3 +175,17 @@ def test(dataloader,model, model_name):
             confusion_matrix.update(output,data.y)
     print(confusion_matrix)
     return confusion_matrix.performance()
+
+
+def CAM(dataloader,model):
+
+    model.eval()
+        
+    with tqdm(enumerate(dataloader), total=len(dataloader), ncols=160) as t:
+        for i, (data) in t: 
+            # measure data loading time
+
+            data = data.cuda()
+
+            # compute output
+            output = model.CAM(data)

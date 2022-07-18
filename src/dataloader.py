@@ -124,7 +124,8 @@ class MSIRawDataset(Dataset):
         path_graph = self.spectrum_dir_path + self.target_data.loc[index]['MSI name'] + '/graph_' + str(self.target_data.loc[index]['MSI pixel id']) + '.npy'
         
         spec,graph = load_spectrum(path_spectrum,path_graph,self.network_params,self.pre_process_param,self.mode)
-     
+        
+
         # normalize intensity features
         node_features = normalize(torch.clamp(torch.log(torch.from_numpy(spec[:,2])),min=-10).type(torch.float)).unsqueeze(-1)
         #node_features = normalize(torch.clamp(torch.from_numpy(spec[:,2]),min=-10).type(torch.float)).unsqueeze(-1)
@@ -143,11 +144,13 @@ class MSIRawDataset(Dataset):
         
         # Store data
         #print("shape graph ", np.shape(graph)," ",len(np.shape(graph)))
-        if len(np.shape(graph)):
-            graph = np.zeros((1,3))
-            
+        #if len(np.shape(graph)) == 0:
+        #    print("Setting empty graph")
+        #    graph = np.zeros((1,3))
+
         data = Data(x=node_features,y=torch.from_numpy(np.asarray(self.target_data.loc[index][self.network_params['Annotation name']])), edge_index=torch.transpose(torch.tensor(graph[:,[0,1]]).type(torch.LongTensor),0,1), edge_attr=torch.tensor(graph[:,2]).type(torch.LongTensor).unsqueeze(-1))
         
+
         return data
 
 
