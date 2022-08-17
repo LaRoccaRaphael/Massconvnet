@@ -91,7 +91,8 @@ def main(args):
         performance = test(test_loader, model=model, model_name=args.model_name)
         print(performance)
         logging.info("Best performance at end of training ")
-        logging.info("Performance: " +  str(performance["accuracy"]))
+        #logging.info("Performance: " +  str(performance["accuracy"]))
+        logging.info("Performance: " +  str(performance["balanced accuracy"]))
 
     if args.cam_only:
 

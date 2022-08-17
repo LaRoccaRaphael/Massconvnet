@@ -123,11 +123,12 @@ class MSIRawDataset(Dataset):
         path_spectrum = self.spectrum_dir_path + self.target_data.loc[index]['MSI name'] + '/spec_' + str(self.target_data.loc[index]['MSI pixel id']) + '.npy'
         path_graph = self.spectrum_dir_path + self.target_data.loc[index]['MSI name'] + '/graph_' + str(self.target_data.loc[index]['MSI pixel id']) + '.npy'
         
-        spec,graph = load_spectrum(path_spectrum,path_graph,self.network_params,self.pre_process_param,self.mode)
+        spec,graph = load_spectrum(path_spectrum,path_graph)
         
 
         # normalize intensity features
         node_features = normalize(torch.clamp(torch.log(torch.from_numpy(spec[:,2])),min=-10).type(torch.float)).unsqueeze(-1)
+        #node_features = torch.clamp(torch.log(torch.from_numpy(spec[:,2])),min=-10).type(torch.float).unsqueeze(-1)
         #node_features = normalize(torch.clamp(torch.from_numpy(spec[:,2]),min=-10).type(torch.float)).unsqueeze(-1)
         
      
@@ -296,104 +297,20 @@ def generate_kendrick_param(peaks):
     
     return(km,kmd)
 
-def load_spectrum(path_spectrum,path_graph,signal_degradation_params,pre_process_param,mode):
+def load_spectrum(path_spectrum,path_graph):
     
     
     # load original spectrum and graph
     spec = np.load(path_spectrum)
     graph = np.load(path_graph)
+    graph2 = graph.copy()
+    graph = np.concatenate((graph,graph2[:,[1,0,2]]),axis=0)
+
+    #km,kmd = generate_kendrick_param(spec[:,0])
+    #spec[:,1] = kmd
     
-    applied_degradation = signal_degradation_params['signal degradation']
+    #spec[:,2] = spec[:,2]/np.sum(spec[:,2]) # tic normalization
     
-    if  signal_degradation_params['only test'] & (mode != "test"):
-        applied_degradation = False
-        
-    if  signal_degradation_params['only train'] & (mode != "train"):
-        applied_degradation = False
-    
-    if applied_degradation :
-        print("applied signal degradation")
-        
-        if signal_degradation_params['spectral resolution param'] >0:
-            # shift all the masses from different random values
-            org_mass = spec[:,0]
-            mass = org_mass + np.random.normal(loc = 0, scale = signal_degradation_params['spectral resolution param'], size = np.shape(org_mass))
-            km, kmd = generate_kendrick_param(mass)
-            spec[:,0] = km
-            spec[:,1] = kmd
-            # check if the edge is in the tolerance range
-            edge_mass_diff = pre_process_param["mass_diff"]
-            edge_mass_diff = np.asarray(edge_mass_diff)
-            
-            edge_to_keep = np.abs(spec[:,0][graph[:,1]] - spec[:,0][graph[:,0]] - edge_mass_diff[graph[:,2]]) <= pre_process_param["tolerance"]
-            graph = graph[edge_to_keep,:]
-            
-        if signal_degradation_params['mass shift param'] >0:
-            # shift all the masses from a random value 
-            org_mass = spec[:,0]
-            mass = org_mass + np.random.normal(loc = 0, scale = signal_degradation_params['mass shift param'], size = 1)[0]
-            km, kmd = generate_kendrick_param(mass)
-            spec[:,0] = km
-            spec[:,1] = kmd
-            
-        if signal_degradation_params['intensity limitation param'] <1:
-            # decrease the observed peaks from a given proportion
-            index_peak = np.argsort(spec[:,2])[::-1][:np.floor(len(spec[:,2])*signal_degradation_params['intensity limitation param']).astype(int)]
-            spec = spec[index_peak,:]
-            spec = spec[np.argsort(spec[:,0]),:]
-
-            # create a dictionnary from old peak index to new one according to the sorted spectrum
-            keys_list = index_peak[np.argsort(index_peak)] 
-            values_list = np.arange(0,len(keys_list),1)
-            zip_iterator = zip(keys_list, values_list)
-            new_index_dict = dict(zip_iterator)
-
-            # update the edge index 
-            edgetokeep = np.zeros(len(graph[:,0]))
-            for i in range(0,len(graph[:,0])):
-                if (graph[i,0] in new_index_dict) & (graph[i,1] in new_index_dict):
-                    edgetokeep[i] = 1
-                    graph[i,0] = new_index_dict[graph[i,0]]
-                    graph[i,1] = new_index_dict[graph[i,1]]
-
-            graph = graph[edgetokeep.astype(bool),:]
-            
-        if signal_degradation_params['random peaks removal param'] <1:
-            # decrease the observed peaks from a given proportion
-            index_peak = np.where(np.random.choice([0, 1], size=(len(spec[:,0]),), p=[1-signal_degradation_params['random peaks removal param'], signal_degradation_params['random peaks removal param']]))[0]
-            spec = spec[index_peak,:]
-            spec = spec[np.argsort(spec[:,0]),:]
-
-            # create a dictionnary from old peak index to new one according to the sorted spectrum
-            keys_list = index_peak[np.argsort(index_peak)] 
-            values_list = np.arange(0,len(keys_list),1)
-            zip_iterator = zip(keys_list, values_list)
-            new_index_dict = dict(zip_iterator)
-
-            # update the edge index 
-            edgetokeep = np.zeros(len(graph[:,0]))
-            for i in range(0,len(graph[:,0])):
-                if (graph[i,0] in new_index_dict) & (graph[i,1] in new_index_dict):
-                    edgetokeep[i] = 1
-                    graph[i,0] = new_index_dict[graph[i,0]]
-                    graph[i,1] = new_index_dict[graph[i,1]]
-
-            graph = graph[edgetokeep.astype(bool),:]
-            
-            
-            
-    if signal_degradation_params['edge index to remove'] != None:
-        # remove edges and update the graph edge indexes
-        
-        new_graph = graph.copy()
-        index_edge = np.ones(len(graph[:,2]))
-        
-        for i in signal_degradation_params['edge index to remove']:
-            index_edge[graph[:,2] == i] = 0
-            new_graph[graph[:,2]>i,2] = graph[graph[:,2]>i,2]-1
-            
-        graph = new_graph[index_edge.astype(bool),:]
-        
     return(spec,graph)
 
 if __name__ == "__main__":

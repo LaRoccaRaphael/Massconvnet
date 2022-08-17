@@ -26,6 +26,8 @@ class GCNModel(nn.Module):
         # Define the classification head
         self.batchnorm = torch.nn.BatchNorm1d(16*multiplier)
         self.linear = torch.nn.Linear(16*multiplier, self.num_classes)
+        self.sigmoid = torch.nn.Sigmoid()
+        
 
         # For cam
         self.cam_counter = 0
@@ -57,6 +59,7 @@ class GCNModel(nn.Module):
         # Classification Head
         #x = self.batchnorm(x)
         x = self.linear(x)
+        x = self.sigmoid(x)
 
         return x
 
@@ -72,8 +75,8 @@ class GCNModel(nn.Module):
 
         CAM_map = torch.matmul(graph,weigths)
 
-        torch.save(CAM_map.cpu(),"models/CAM_Model/Testset/CAM_" + str(self.cam_counter) + ".pt")
-        torch.save(output.cpu(),"models/CAM_Model/Testset/OUT" + str(self.cam_counter) + ".pt")
+        torch.save(CAM_map.cpu(),"/media/USB2/DL_MASS/Dataset/DS/models/CAM_model/Testset/CAM_" + str(self.cam_counter) + ".pt")
+        torch.save(output.cpu(),"/media/USB2/DL_MASS/Dataset/DS/models/CAM_model/Testset/OUT" + str(self.cam_counter) + ".pt")
         self.cam_counter += 1
 
 

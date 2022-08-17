@@ -44,11 +44,24 @@ class ConfusionMatrix():
 
 		perf = dict()
 		perf["accuracy"] = self.accuracy()
+		perf["balanced accuracy"] = self.balanced_accuracy()
 		return perf
 
 	def accuracy(self):
 
 		return np.trace(self.matrix)/np.sum(self.matrix)
+    
+	def balanced_accuracy(self):
+        
+		Tp = self.matrix[1,1]
+		Fn = self.matrix[1,0]
+		Tn = self.matrix[0,0]
+		Fp = self.matrix[0,1]
+
+		Sensitivity = Tp/(Tp+Fn)
+		Specificity = Tn/(Tn+Fp)
+
+		return (Sensitivity + Specificity)/2
 
 	def __str__(self):
 

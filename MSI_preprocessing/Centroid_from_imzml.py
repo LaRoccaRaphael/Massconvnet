@@ -78,8 +78,12 @@ def generate_graph_from_spectrum(spectrum,mass_diff,tolerance):
     
     return(spectrum_edge_param)
 
-def profile_to_cent(mzs,intensities,max_peaks,centroid):
+def profile_to_cent(mzs,intensities,mass_range,max_peaks,centroid):
+        
         intensity_arr = np.array(intensities)
+        index_mass = (mzs >= mass_range[0]) & (mzs <= mass_range[1])
+        mzs = mzs[index_mass]
+        intensity_arr = intensity_arr[index_mass]
 
         # Peak detection
         if centroid == False:
@@ -88,7 +92,7 @@ def profile_to_cent(mzs,intensities,max_peaks,centroid):
             peaks = np.arange(0,len(intensity_arr),1)
             
         print(peaks)
-
+        
         # Select the max_peaks most intense peaks
         peaks = peaks[np.argsort(intensity_arr[peaks])[::-1][:max_peaks]]
         selected_mzs = mzs[peaks]
@@ -126,6 +130,10 @@ tolerance = param['tolerance']
 mass_diff = param['mass_diff']
 max_peaks = param['max_peaks']
 annot_table_name = param['annot_table']
+mass_range = param["mass range"]
+min_mass = mass_range[0]
+max_mass = mass_range[1]
+
 
 annot_table = pd.read_csv(annot_table_name)  
 
@@ -162,7 +170,7 @@ if param['file_type'] == 'imzML':
                             print(massspec_id)
 
                             mzs, intensities = p.getspectrum(idx)
-                            spectrum = profile_to_cent(mzs,intensities,max_peaks,True)
+                            spectrum = profile_to_cent(mzs,intensities,mass_range,max_peaks,True)
                             np.save(output_dir+ msi_class +"/" + 'spec_' + str(massspec_id), spectrum)
 
                             spectrum_edge_param = generate_graph_from_spectrum(spectrum,mass_diff,tolerance)

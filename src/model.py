@@ -48,7 +48,7 @@ class GCNModel(nn.Module):
         x = global_max_pool(x, batch) 
         
         # Classification Head
-        x = self.batchnorm(x)
+        #x = self.batchnorm(x)
         x = F.relu(self.linear_1(x))
         x = self.linear_2(x)
 
