@@ -59,7 +59,7 @@ class GCNModel(nn.Module):
         # Classification Head
         #x = self.batchnorm(x)
         x = self.linear(x)
-        x = self.sigmoid(x)
+        #x = self.sigmoid(x)
 
         return x
 

@@ -15,7 +15,7 @@ from sklearn.model_selection import StratifiedKFold
 
 class MSIRawDataset(Dataset):
     
-    def __init__(self, path, pre_process_param_name,network_param_name, with_masses=False, mode="train", normalization=False):
+    def __init__(self, path, pre_process_param_name,network_param_name, with_masses=False, mode="train", normalization=False,random_state=0):
         
         # Parameters
         self.path = path
@@ -59,7 +59,7 @@ class MSIRawDataset(Dataset):
         #df = pd.read_csv(os.path.join(path,"Annot_table.csv"),sep=",", header=0)
         df = pd.read_csv(self.pre_process_param["annot_table"],sep=",", header=0)
         df['initial index'] = np.arange(0,np.shape(df)[0],1)
-        df = df.sample(frac = 1,random_state=0)
+        df = df.sample(frac = 1,random_state=random_state)
         
         
         # StratifiedKFold 

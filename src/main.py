@@ -29,16 +29,16 @@ def main(args):
         
         dataset_Train = MSIRawDataset(args.dataset_path,args.pre_process_param_name,args.network_param_name,
                                     mode="train", with_masses=args.with_masses, 
-                                    normalization=args.normalize)
+                                    normalization=args.normalize,random_state=args.random_state)
         print("Loading validation set...")
         dataset_Valid = MSIRawDataset(args.dataset_path,args.pre_process_param_name,args.network_param_name,
                                     mode="valid", with_masses=args.with_masses, 
-                                    normalization=args.normalize)
+                                    normalization=args.normalize,random_state=args.random_state)
 
     print("Loading testing set...")
     dataset_Test = MSIRawDataset(args.dataset_path,args.pre_process_param_name,args.network_param_name,
                                 mode="test", with_masses=args.with_masses, 
-                                normalization=args.normalize)
+                                normalization=args.normalize,random_state=args.random_state)
 
     # Create the deep learning model
     model = GCNModel(weights=args.load_weights, 
@@ -128,6 +128,7 @@ if __name__ == '__main__':
     parser.add_argument('--evaluation_frequency', required=False, type=int,   default=10,     help='Evaluation frequency on test set' )
 
     parser.add_argument('--max_num_worker',   required=False, type=int,   default=4, help='number of worker to load data')
+    parser.add_argument('--random_state',   required=False, type=int,   default=0, help='random state')
     parser.add_argument('--loglevel',   required=False, type=str,   default='INFO', help='logging level')
 
     args = parser.parse_args()
