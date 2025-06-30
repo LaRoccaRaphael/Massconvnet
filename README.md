@@ -32,12 +32,6 @@ The file `environment.yml` includes all the required libraries and exact version
 
 ## 🚀 Running the R-GCN Model
 
-The main training and evaluation script is located in:
-
-```
-src/
-```
-
 ### ✅ Example command:
 
 ```bash
