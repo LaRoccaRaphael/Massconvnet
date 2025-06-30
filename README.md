@@ -16,7 +16,6 @@ In addition to improved robustness over conventional CNN or vector-based methods
 This repository includes:
 - Code for training and testing the R-GCN model (`src/`)
 - Configuration utilities for preprocessing data
-- Preprocessing and network configuration templates (`.json`)
 - Notebooks for running 1D-CNN and classical ML baselines
 - A full Conda environment specification (`environment.yml`)
 
@@ -36,7 +35,7 @@ The file `environment.yml` includes all the required libraries and exact version
 The main training and evaluation script is located in:
 
 ```
-src/main.py
+src/
 ```
 
 ### ✅ Example command:
