@@ -14,6 +14,65 @@ def generate_kendrick_param(peaks):
     
     return(km,kmd)
 
+def compute_masserror(experimental_mass, database_mass, tolerance):
+    # mass error in Dalton
+    if database_mass != 0:
+        return abs(experimental_mass - database_mass) <= tolerance
+
+def binarySearch_tol(arr, l, r, x, tolerance): 
+    # binary search with a tolerance (mass) search from an ordered list of masses
+    while l <= r: 
+        mid = l + (r - l)//2; 
+        if compute_masserror(x,arr[mid],tolerance): 
+            itpos = mid +1
+            itneg = mid -1
+            index = []
+            index.append(mid)
+            if( itpos < len(arr)):
+                while compute_masserror(x,arr[itpos],tolerance) and itpos < len(arr):
+                    index.append(itpos)
+                    itpos += 1 
+            if( itneg > 0): 
+                while compute_masserror(x,arr[itneg],tolerance) and itneg > 0:
+                    index.append(itneg)
+                    itneg -= 1     
+            return index 
+        elif arr[mid] < x: 
+            l = mid + 1
+        else: 
+            r = mid - 1
+    return -1
+
+def generate_graph_from_spectrum(spectrum,mass_diff,tolerance): 
+    
+    peaks = spectrum[:,0]
+    intensity = spectrum[:,1]
+    
+    spectrum_edge_param = list()
+    
+    # compute graph parameters edge index pairs and edge type
+    for i in range(0,np.size(peaks,0)):
+        for j in range(0,np.size(mass_diff,0)):
+            
+            exp_peak = peaks[i]+mass_diff[j]
+            
+            # peaks need to be ordered
+            db_ind = binarySearch_tol(np.append(peaks,np.max(peaks)+5),
+                                      0, len(peaks)-1, exp_peak,tolerance)
+            
+            
+            # TODO add an option to consider all edges, not only the max
+            if db_ind != -1:
+                if mass_diff[j] >0:
+                    selected_index = db_ind[np.argmax(intensity[db_ind])]
+                    spectrum_edge_param.append([i,selected_index,j])
+                
+                if mass_diff[j] <=0:
+                    selected_index = db_ind[np.argmax(intensity[db_ind])]
+                    spectrum_edge_param.append([selected_index,i,j])
+    
+    return(spectrum_edge_param)
+
 def load_spectrum(spec,graph,signal_degradation_params,pre_process_param,mode):
     
     
@@ -112,31 +171,113 @@ def load_spectrum(spec,graph,signal_degradation_params,pre_process_param,mode):
         
     return(spec,graph)
 
+np.random.seed(0)
+def rand_bin_array(K, N):
+    arr = np.zeros(N)
+    arr[:K]  = 1
+    np.random.shuffle(arr)
+    return arr
 
 def Iterate_df(network_params,pre_process_param,pre_process_param_name,network_param_name):
     
     file = pre_process_param['output_dir'] + pre_process_param_name +"/"
-    df = pd.read_csv(pre_process_param['annot_table'],sep=",", header=0)   
+    df = pd.read_csv(pre_process_param['annot_table'],sep=",", header=0)
     
-    for index, row in df.iterrows():
+    ## applied signal mixing 
+    if network_params["Signal mixing"] > 0:
         
-        print(str(row['MSI pixel id']),row['train'])
-        path = file + row['MSI name'] +"/spec_" + str(row['MSI pixel id']) + ".npy"
-        spec = np.load(path)
+        rd = 1
         
-        path = file + row['MSI name'] +"/graph_" + str(row['MSI pixel id']) + ".npy"
-        graph = np.load(path)
+        prop = network_params["Signal mixing"]
+        max_peaks = pre_process_param['max_peaks']
+        mass_diff = pre_process_param['mass_diff']
+        tolerance = pre_process_param['tolerance']
         
-        mode = row['train']
+        if network_params['only test']:
+            sub_df = df.loc[(df["train"] == 0)].copy()
+            unmodified_df = df.loc[(df["train"] == 1)].copy()
+            
+        if network_params['only train']:
+            sub_df = df.loc[(df["train"] == 1)].copy()
+            unmodified_df = df.loc[(df["train"] == 0)].copy()
+            
+        if network_params['only train'] & network_params['only test']:
+            sub_df = df.copy()
+            unmodified_df = pd.DataFrame()
         
+        for annot in np.unique(df["Annotations"]):
+                           
+            Samples_class_0 = sub_df.loc[(df["Annotations"] == annot)].copy().reset_index()
+            Samples_class_1 = sub_df.loc[(df["Annotations"] != annot)].copy().sample(frac=1,random_state=rd).reset_index()
+            Samples_class_0["Sample to modified"] = rand_bin_array(int(np.shape(Samples_class_0)[0]*0.5),np.shape(Samples_class_0)[0])
+            
+            unmodified_Samples_class_0 = unmodified_df.loc[(df["Annotations"] == annot)].copy().reset_index()
+            unmodified_Samples_class_1 = unmodified_df.loc[(df["Annotations"] != annot)].copy().sample(frac=1,random_state=rd).reset_index()
+            unmodified_Samples_class_0["Sample to modified"] = rand_bin_array(int(np.shape(unmodified_Samples_class_0)[0]*0.5),np.shape(unmodified_Samples_class_0)[0])
+            
+            for index, row in Samples_class_0.iterrows():
+                
+                path = file + row['MSI name'] +"/spec_" + str(row['MSI pixel id']) + ".npy"
+                spec1 = np.load(path)
+                
+                
+                row2 = Samples_class_1.loc[index]
+                path = file + row2['MSI name'] +"/spec_" + str(row2['MSI pixel id']) + ".npy"
+                spec2 = np.load(path)
+                spec2[:,2] = spec2[:,2]*prop*row["Sample to modified"]
+                
+                spec = np.concatenate((spec1,spec2),axis=0)
+                #spec = spec[np.argsort(spec[:,2])[::-1][:max_peaks],:]
+                spec = spec[np.argsort(spec[:,0]),:]
+                
+                spectrum_edge_param = generate_graph_from_spectrum(spec,mass_diff,tolerance)
+                
+                np.save(pre_process_param['output_dir']+ network_param_name + "/" +row['MSI name']+"/spec_" + str(row['MSI pixel id']) + ".npy",spec)
+                np.save(pre_process_param['output_dir']+ network_param_name + "/" +row['MSI name']+"/graph_" + str(row['MSI pixel id']) + ".npy",spectrum_edge_param )
+            
+            for index, row in unmodified_Samples_class_0.iterrows():
+                
+                path = file + row['MSI name'] +"/spec_" + str(row['MSI pixel id']) + ".npy"
+                spec1 = np.load(path)
+                
+                row2 = unmodified_Samples_class_1.loc[index]
+                path = file + row2['MSI name'] +"/spec_" + str(row2['MSI pixel id']) + ".npy"
+                spec2 = np.load(path)
+                spec2[:,2] = spec2[:,2]*0
+                
+                spec = np.concatenate((spec1,spec2),axis=0)
+                spec = spec[np.argsort(spec[:,0]),:]
+                spectrum_edge_param = generate_graph_from_spectrum(spec,mass_diff,tolerance)
+                
+                #path = file + row['MSI name'] +"/graph_" + str(row['MSI pixel id']) + ".npy"
+                #graph = np.load(path)
+                
+                np.save(pre_process_param['output_dir']+ network_param_name + "/" +row['MSI name']+"/spec_" + str(row['MSI pixel id']) + ".npy",spec)
+                np.save(pre_process_param['output_dir']+ network_param_name + "/" +row['MSI name']+"/graph_" + str(row['MSI pixel id']) + ".npy",spectrum_edge_param)
+
+         
+    ## applied other           
+    else:
         
-        #plt.scatter(spec[:,0],spec[:,1],1)
-        spec,graph = load_spectrum(spec,graph,network_params,pre_process_param,mode)
-        #plt.scatter(spec[:,0],spec[:,1],1)
-        #plt.show()
-        
-        np.save(pre_process_param['output_dir']+ network_param_name + "/" +row['MSI name']+"/spec_" + str(row['MSI pixel id']) + ".npy",spec)
-        np.save(pre_process_param['output_dir']+ network_param_name + "/" +row['MSI name']+"/graph_" + str(row['MSI pixel id']) + ".npy",graph )
+        for index, row in df.iterrows():
+
+            print(str(row['MSI pixel id']),row['train'])
+            path = file + row['MSI name'] +"/spec_" + str(row['MSI pixel id']) + ".npy"
+            spec = np.load(path)
+
+            path = file + row['MSI name'] +"/graph_" + str(row['MSI pixel id']) + ".npy"
+            graph = np.load(path)
+
+            mode = row['train']
+
+
+            #plt.scatter(spec[:,0],spec[:,1],1)
+            spec,graph = load_spectrum(spec,graph,network_params,pre_process_param,mode)
+            #plt.scatter(spec[:,0],spec[:,1],1)
+            #plt.show()
+
+            np.save(pre_process_param['output_dir']+ network_param_name + "/" +row['MSI name']+"/spec_" + str(row['MSI pixel id']) + ".npy",spec)
+            np.save(pre_process_param['output_dir']+ network_param_name + "/" +row['MSI name']+"/graph_" + str(row['MSI pixel id']) + ".npy",graph )
  
     
 

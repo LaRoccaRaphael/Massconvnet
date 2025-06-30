@@ -6,7 +6,7 @@ import numpy as np
 from datetime import datetime
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
-from dataloader import MSIDataset,MSIRawDataset, collateGCN
+from dataloader import MSIRawDataset, collateGCN
 from model_cam import GCNModel
 from train import trainer, test, CAM
 import json
@@ -26,18 +26,17 @@ def main(args):
     if not args.test_only and not args.cam_only:
         print("Loading training set...")
         
-        
         dataset_Train = MSIRawDataset(args.dataset_path,args.pre_process_param_name,args.network_param_name,
-                                    mode="train", with_masses=args.with_masses, 
+                                    mode="train", with_masses=args.with_masses,with_intensity=args.with_intensity, 
                                     normalization=args.normalize,random_state=args.random_state)
         print("Loading validation set...")
         dataset_Valid = MSIRawDataset(args.dataset_path,args.pre_process_param_name,args.network_param_name,
-                                    mode="valid", with_masses=args.with_masses, 
+                                    mode="valid", with_masses=args.with_masses,with_intensity=args.with_intensity,  
                                     normalization=args.normalize,random_state=args.random_state)
 
     print("Loading testing set...")
     dataset_Test = MSIRawDataset(args.dataset_path,args.pre_process_param_name,args.network_param_name,
-                                mode="test", with_masses=args.with_masses, 
+                                mode="test", with_masses=args.with_masses,with_intensity=args.with_intensity,  
                                 normalization=args.normalize,random_state=args.random_state)
 
     # Create the deep learning model
@@ -85,6 +84,7 @@ def main(args):
     # Load the best model and compute its performance
     checkpoint = torch.load(os.path.join("models", args.model_name, "model.pth.tar"))
     model.load_state_dict(checkpoint['state_dict'])
+    
 
     if not args.cam_only:
 
@@ -93,10 +93,12 @@ def main(args):
         logging.info("Best performance at end of training ")
         #logging.info("Performance: " +  str(performance["accuracy"]))
         logging.info("Performance: " +  str(performance["balanced accuracy"]))
+        torch.save(model, os.path.join(args.dataset_path,"models", args.model_name,args.pre_process_param_name + "_" + args.network_param_name + "_model.pth.tar"))
 
     if args.cam_only:
 
-        CAM(test_loader, model)
+        CAM(test_loader,model, os.path.join(args.dataset_path,"models", "CAM_output"))
+        
         return
 
     return performance
@@ -121,6 +123,8 @@ if __name__ == '__main__':
     parser.add_argument('--with_masses',   required=False, action='store_true',  help='include the mass and mass defect in the node features' )
     parser.add_argument('--multiplier', required=False, type=int,   default=1,     help='Multiplier for the number of features in the GCN' )
 
+    parser.add_argument('--with_intensity',   required=False, action='store_true' ,help='kept the the m/z intensity else replace by 1' )
+    
     parser.add_argument('--max_epochs',   required=False, type=int,   default=1000,     help='Maximum number of epochs' )
     parser.add_argument('--batch_size', required=False, type=int,   default=64,     help='Batch size' )
     parser.add_argument('--LR',       required=False, type=float,   default=1e-03, help='Learning Rate' )
@@ -139,6 +143,7 @@ if __name__ == '__main__':
         raise ValueError('Invalid log level: %s' % args.loglevel)
 
     os.makedirs(os.path.join(args.dataset_path,"models", args.model_name), exist_ok=True)
+    os.makedirs(os.path.join(args.dataset_path,"models", "CAM_output"), exist_ok=True)
     
     
     network_param_json_path = args.dataset_path + '/parameters/network/' + args.network_param_name + '.json'

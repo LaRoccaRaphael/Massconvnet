@@ -177,7 +177,7 @@ def test(dataloader,model, model_name):
     return confusion_matrix.performance()
 
 
-def CAM(dataloader,model):
+def CAM(dataloader,model,path):
 
     model.eval()
         
@@ -188,4 +188,4 @@ def CAM(dataloader,model):
             data = data.cuda()
 
             # compute output
-            output = model.CAM(data)
+            output = model.CAM(data,path)

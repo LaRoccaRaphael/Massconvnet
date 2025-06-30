@@ -63,7 +63,8 @@ class GCNModel(nn.Module):
 
         return x
 
-    def CAM(self, data):
+    def CAM(self, data, path):
+        
 
         weigths = torch.transpose(self.linear.weight.data,0,1)
         #print(weigths.size())
@@ -75,8 +76,16 @@ class GCNModel(nn.Module):
 
         CAM_map = torch.matmul(graph,weigths)
 
-        torch.save(CAM_map.cpu(),"/media/USB2/DL_MASS/Dataset/DS/models/CAM_model/Testset/CAM_" + str(self.cam_counter) + ".pt")
-        torch.save(output.cpu(),"/media/USB2/DL_MASS/Dataset/DS/models/CAM_model/Testset/OUT" + str(self.cam_counter) + ".pt")
+        #torch.save(graph.cpu(),"/media/USB2/DL_MASS/Dataset/DS/models/CAM_model/Testset/Ion_embedding_" + str(self.cam_counter) + ".pt")
+        torch.save(CAM_map.cpu(),path + "/CAM_" + str(self.cam_counter) + ".pt")
+        torch.save(output.cpu(),path + "/OUT_" + str(self.cam_counter) + ".pt")
+        torch.save(graph.cpu(),path + "/Ion_embedding_" + str(self.cam_counter) + ".pt")
+        #torch.save(output.cpu(),"/media/USB2/DL_MASS/Dataset/DS/models/CAM_model/Testset/OUT" + str(self.cam_counter) + ".pt")
+        
+        #torch.save(graph.cpu(),"/media/USB2/DL_MASS/SpaceM/DS/models/CAM_model/Testset/Ion_embedding_" + str(self.cam_counter) + ".pt")
+        #torch.save(CAM_map.cpu(),"/media/USB2/DL_MASS/SpaceM/DS/models/CAM_model/Testset/CAM_" + str(self.cam_counter) + ".pt")
+        #torch.save(output.cpu(),"/media/USB2/DL_MASS/SpaceM/DS/models/CAM_model/Testset/OUT" + str(self.cam_counter) + ".pt")
+        
         self.cam_counter += 1
 
 

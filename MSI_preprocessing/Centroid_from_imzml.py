@@ -91,7 +91,6 @@ def profile_to_cent(mzs,intensities,mass_range,max_peaks,centroid):
         else:
             peaks = np.arange(0,len(intensity_arr),1)
             
-        print(peaks)
         
         # Select the max_peaks most intense peaks
         peaks = peaks[np.argsort(intensity_arr[peaks])[::-1][:max_peaks]]
@@ -152,6 +151,7 @@ if param['file_type'] == 'imzML':
             msi_class = os.path.basename(it.path)
             if np.sum(annot_table["MSI name"] == msi_class) >0:
                 sub_df = annot_table.loc[annot_table["MSI name"] == msi_class].copy()
+                #sub_df = sub_df.sort_values('origianl MSI pixel id').copy()
 
                 os.mkdir(output_dir + msi_class)
 
@@ -165,9 +165,9 @@ if param['file_type'] == 'imzML':
 
                     p = ImzMLParser(file)
                     for idx, (x,y,z) in enumerate(p.coordinates):
+                        print(idx,(x,y,z),np.shape(sub_df)[0],iterator_df)
 
                         if ct_spectrum ==iterator_df:
-                            print(massspec_id)
 
                             mzs, intensities = p.getspectrum(idx)
                             spectrum = profile_to_cent(mzs,intensities,mass_range,max_peaks,True)

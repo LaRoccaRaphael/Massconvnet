@@ -45,7 +45,8 @@ class GCNModel(nn.Module):
         # GCN part
         x = F.relu(self.rgcnconv_1(x,edge_index,edge_type))
         x = F.relu(self.rgcnconv_2(x,edge_index,edge_type))
-        x = global_max_pool(x, batch) 
+        x = global_max_pool(x, batch)
+        #x =  global_mean_pool(x, batch)
         
         # Classification Head
         #x = self.batchnorm(x)

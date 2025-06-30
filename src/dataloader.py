@@ -15,11 +15,12 @@ from sklearn.model_selection import StratifiedKFold
 
 class MSIRawDataset(Dataset):
     
-    def __init__(self, path, pre_process_param_name,network_param_name, with_masses=False, mode="train", normalization=False,random_state=0):
+    def __init__(self, path, pre_process_param_name,network_param_name, with_masses=False,with_intensity=False,mode="train", normalization=False,random_state=0):
         
         # Parameters
         self.path = path
         self.with_masses = with_masses
+        self.with_intensity = with_intensity
         self.mode = mode
         self.normalization=normalization
         self.percent_train = 0.8
@@ -37,7 +38,7 @@ class MSIRawDataset(Dataset):
             network_params = json.load(json_file)
             
         self.network_params = network_params
-   
+        
         
         # read parameters from post processing
         pre_process_param = []
@@ -56,11 +57,14 @@ class MSIRawDataset(Dataset):
         
         
         # Load sample information
-        #df = pd.read_csv(os.path.join(path,"Annot_table.csv"),sep=",", header=0)
         df = pd.read_csv(self.pre_process_param["annot_table"],sep=",", header=0)
         df['initial index'] = np.arange(0,np.shape(df)[0],1)
-        df = df.sample(frac = 1,random_state=random_state)
         
+        if self.mode!="test":
+            df = df.sample(frac = 1,random_state=random_state)
+        
+        
+        print(df)
         
         # StratifiedKFold 
         # 'training samples' =="kfold"
@@ -125,11 +129,13 @@ class MSIRawDataset(Dataset):
         
         spec,graph = load_spectrum(path_spectrum,path_graph)
         
+        #node_features = torch.from_numpy(np.ones(len(spec[:,2]))).type(torch.float).unsqueeze(-1)
 
-        # normalize intensity features
-        node_features = normalize(torch.clamp(torch.log(torch.from_numpy(spec[:,2])),min=-10).type(torch.float)).unsqueeze(-1)
-        #node_features = torch.clamp(torch.log(torch.from_numpy(spec[:,2])),min=-10).type(torch.float).unsqueeze(-1)
-        #node_features = normalize(torch.clamp(torch.from_numpy(spec[:,2]),min=-10).type(torch.float)).unsqueeze(-1)
+        if self.with_intensity:
+            node_features = normalize(torch.clamp(torch.log(torch.from_numpy(spec[:,2])),min=-10).type(torch.float)).unsqueeze(-1)
+        else:
+            node_features = torch.from_numpy(np.ones(len(spec[:,2]))).type(torch.float).unsqueeze(-1)
+            
         
      
         if self.with_masses:
@@ -142,12 +148,7 @@ class MSIRawDataset(Dataset):
             #kmd = torch.from_numpy(normalize(spec[:,1])).type(torch.float)
             node_features = torch.cat((node_features,km.unsqueeze(-1), kmd.unsqueeze(-1)),-1)
 
-        
-        # Store data
-        #print("shape graph ", np.shape(graph)," ",len(np.shape(graph)))
-        #if len(np.shape(graph)) == 0:
-        #    print("Setting empty graph")
-        #    graph = np.zeros((1,3))
+       
 
         data = Data(x=node_features,y=torch.from_numpy(np.asarray(self.target_data.loc[index][self.network_params['Annotation name']])), edge_index=torch.transpose(torch.tensor(graph[:,[0,1]]).type(torch.LongTensor),0,1), edge_attr=torch.tensor(graph[:,2]).type(torch.LongTensor).unsqueeze(-1))
         
@@ -163,117 +164,16 @@ class MSIRawDataset(Dataset):
 
         return np.shape(self.target_data)[0]
 
-class MSIDataset(Dataset):
-    """
-    Dataset loader for the MSI dataset
-    - Formats the input data in the graph format
-    - Formats the targets for the classification task
-    :param path: path to the MSI dataset
-    :param spectrum_names: list of spectrums to load
-    """
-
-    def __init__(self, path, spectrum_names, with_masses=False, mode="train", normalization=False):
-
-        # Parameters
-        self.path = path
-        self.spectrum_names = spectrum_names
-        self.with_masses = with_masses
-        self.mode = mode
-        self.normalization=normalization
-        self.percent_train = 0.8
-
-        # Load the targets
-        target_data = pd.read_csv(os.path.join(path,"Annot_table.csv"),sep="\t", header=0)
-        target_MSI_name = target_data.loc[:,"MSI name"].values
-        target_MSI_pixel_id = target_data.loc[:,"MSI pixel id"].values
-        target_class = target_data.loc[:,"Annotations"].values
-
-        self.num_classes = np.max(target_class)+1
-
-        # Load the adjacency matrix
-        adjacency_matrix = np.load(os.path.join(path,"Peaks_adjacency_matrix","adj_mat_highres.npy"),allow_pickle=True)
-
-        # Load the spectrums and associate the correct targets
-        self.spectrums = None
-        self.targets = None
-        for spectrum_name in spectrum_names:
-            #tmp_spectrum = torch.clamp(torch.log(torch.transpose(torch.from_numpy(np.load(os.path.join(path,"MSI_datacube",spectrum_name+"_msi.npy"),allow_pickle=True)),0,1)),min=-10).type(torch.float)
-            tmp_spectrum = torch.clamp(torch.transpose(torch.from_numpy(np.load(os.path.join(path,"MSI_datacube",spectrum_name+"_msi.npy"),allow_pickle=True)),0,1),min=-10).type(torch.float)
-            tmp_target = torch.from_numpy(target_class[np.where(target_MSI_name==spectrum_name)]).type(torch.LongTensor)
-            if self.spectrums is not None:
-                self.spectrums = torch.cat((self.spectrums,tmp_spectrum),0)
-                self.targets = torch.cat((self.targets,tmp_target),0)
-            else:
-                self.spectrums = tmp_spectrum
-                self.targets = tmp_target
-        
-        # Get the indexes of each class
-        self.class_indexes = list()
-        for i in np.arange(self.num_classes):
-            self.class_indexes.append((self.targets == i).nonzero(as_tuple=True)[0])
-
-            if self.mode=="train":
-                self.class_indexes[-1] = self.class_indexes[-1][:int(len(self.class_indexes[-1])*self.percent_train)]
-            elif self.mode=="valid":
-                self.class_indexes[-1] = self.class_indexes[-1][int(len(self.class_indexes[-1])*self.percent_train):]
-
-        # Load the mass and mass defect
-        self.mass = torch.from_numpy(np.load(os.path.join(path,"Peaks_descriptor","KM_ceil.npy"),allow_pickle=True)).type(torch.float)
-        self.mass_defect = torch.from_numpy(np.load(os.path.join(path,"Peaks_descriptor","KMD_ceil.npy"),allow_pickle=True)).type(torch.float)
-
-        # Build the Graph
-        self.num_features = 1 if not with_masses else 3
-        self.num_nodes = adjacency_matrix.shape[0]
-        self.num_relations = int(np.max(adjacency_matrix))
-
-        self.edge_index = list()
-        self.edge_type = list()
-        for i in np.arange(adjacency_matrix.shape[0]):
-            for j in np.arange(adjacency_matrix.shape[1]):
-                if (adjacency_matrix[i,j] > 0) & (i <j):
-                    self.edge_index.append([i,j])
-                    self.edge_type.append(adjacency_matrix[i,j]-1)
-        self.edge_index = torch.transpose(torch.tensor(self.edge_index).type(torch.LongTensor),0,1)
-        self.edge_type = torch.tensor(self.edge_type).type(torch.LongTensor).unsqueeze(-1)
-
-        if self.normalization:
-
-            self.spectrums = normalize(self.spectrums)
-            self.mass = normalize(self.mass)
-            self.mass_defect = normalize(self.mass_defect)
-
-
-
-    def __getitem__(self, index):
-
-        # In train and valid mode
-        # Select randomly accross the three classes
-        
-        if self.mode in ["train", "valid"]:
-            # Retrieve the game index and the anchor
-            class_selection = random.randint(0, self.num_classes-1)
-            index = self.class_indexes[class_selection][random.randint(0,len(self.class_indexes[class_selection])-1)]
-        
-        node_features = self.spectrums[index].unsqueeze(-1)
-        if self.with_masses:
-            node_features = torch.cat((node_features,self.mass.unsqueeze(-1), self.mass_defect.unsqueeze(-1)),-1)
-
-        #Store the data for batching
-        data = Data(x=node_features,y=self.targets[index], edge_index=self.edge_index, edge_attr=self.edge_type)
-        
-        return data
-
-    def __len__(self):
-        if self.mode=="train":
-            return int(self.spectrums.size()[0]*self.percent_train)
-        elif self.mode == "valid":
-            return int(self.spectrums.size()[0]*(1-self.percent_train))
-
-        return self.spectrums.size()[0]
 
 # Batch the GCN data
 def collateGCN(data):
     return Batch.from_data_list(data)
+
+def normalize_tic(data):
+
+    sum_d = data.sum()
+
+    return (data)/sum_d
 
 def normalize(data):
 
@@ -282,12 +182,17 @@ def normalize(data):
 
     return (data-mean)/std
 
-#def normalize(data):
+def normalize_min_max(data):
 
-#    dmax = data.max()
-#    dmin = data.min()
+    dmax = data.max()
+    dmin = data.min()
 
-#    return (data-dmin)/(dmax - dmin)
+    return (data-dmin)/(dmax - dmin)
+
+def No_normalize(data):
+
+    return data
+
 
 def generate_kendrick_param(peaks):
     md = 1
@@ -304,12 +209,13 @@ def load_spectrum(path_spectrum,path_graph):
     spec = np.load(path_spectrum)
     graph = np.load(path_graph)
     graph2 = graph.copy()
-    graph = np.concatenate((graph,graph2[:,[1,0,2]]),axis=0)
-
-    #km,kmd = generate_kendrick_param(spec[:,0])
-    #spec[:,1] = kmd
-    
-    #spec[:,2] = spec[:,2]/np.sum(spec[:,2]) # tic normalization
+    #print(np.shape(graph))
+    if np.shape(graph)[0] >0:
+        graph = np.concatenate((graph,graph2[:,[1,0,2]]),axis=0)
+    else:
+        #spec =   np.load("/media/USB2/DL_MASS/DS3/MSI/centroid_data/param_1reduce/161007_WT1S1L1/spec_128.npy")
+        #graph =  np.load("/media/USB2/DL_MASS/DS3/MSI/centroid_data/param_1reduce/161007_WT1S1L1/graph_128.npy")
+        print("empty graph")
     
     return(spec,graph)
 
