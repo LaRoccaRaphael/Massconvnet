@@ -92,7 +92,32 @@ Please cite our publication by using the following bibtex entry:
 
 
 ```bibtex
+@article{doi:10.1021/jasms.5c00055,
+author = {La Rocca, Raphaël and Cioppa, Anthony and Ferrarini, Enrico and H{\"o}fte, Monica and Van Droogenbroeck, Marc and De Pauw, Edwin and Eppe, Gauthier and Quinton, Loïc},
+title = {Relational Graph Convolutional Network for Robust Mass Spectrum Classification},
+journal = {Journal of the American Society for Mass Spectrometry},
+volume = {0},
+number = {0},
+pages = {null},
+year = {0},
+doi = {10.1021/jasms.5c00055},
 
+URL = { 
+    
+        https://doi.org/10.1021/jasms.5c00055
+    
+    
+
+},
+eprint = { 
+    
+        https://doi.org/10.1021/jasms.5c00055
+    
+    
+
+}
+
+}
 ```
 
 ## License
