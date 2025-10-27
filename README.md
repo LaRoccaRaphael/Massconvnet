@@ -1,6 +1,6 @@
 # R-GCN for High-Resolution Mass Spectrometry Imaging (MSI)
 
-## 🧠 Overview
+## Overview
 
 This repository contains the official code for the paper:
 
@@ -11,7 +11,7 @@ In this work, we propose a deep learning architecture based on **Relational Grap
 
 In addition to improved robustness over conventional CNN or vector-based methods, the R-GCN model supports **ion-level interpretability** via **Class Activation Mapping (CAM)**, making it useful for molecular feature discovery in MSI datasets.
 
-## 📁 Repository Description
+## Repository Description
 
 This repository includes:
 - Code for training and testing the R-GCN model (`src/`)
@@ -19,7 +19,7 @@ This repository includes:
 - Notebooks for running 1D-CNN and classical ML baselines
 - A full Conda environment specification (`environment.yml`)
 
-## 📦 Creating the Environment
+## Creating the Environment
 
 This project uses a Conda environment to manage dependencies. To create and activate the environment:
 
@@ -30,9 +30,9 @@ conda activate Massconvnet
 
 The file `environment.yml` includes all the required libraries and exact versions used in the paper.
 
-## 🚀 Running the R-GCN Model
+## Running the R-GCN Model
 
-### ✅ Example command:
+### Example command:
 
 ```bash
 python src/main.py \
@@ -47,7 +47,7 @@ python src/main.py \
     --cam_only
 ```
 
-### 🔍 Command-Line Argument Descriptions:
+### Command-Line Argument Descriptions:
 
 | Argument                  | Description |
 |---------------------------|-------------|
@@ -61,7 +61,7 @@ python src/main.py \
 | `--random_state`           | Random seed for reproducibility |
 | `--cam_only`               | Skip training and run only CAM interpretation |
 
-## 📊 CAM-Only Mode
+## CAM-Only Mode
 
 To use `--cam_only`, a pre-trained model must exist at:
 
@@ -78,7 +78,7 @@ dataset_path/models/CAM_output/
 └── Ion_embedding_<spectrum_id>.pt    # Learned ion embeddings
 ```
 
-## 📓 Jupyter Notebooks
+## Jupyter Notebooks
 
 | Notebook                      | Purpose |
 |------------------------------|---------|
